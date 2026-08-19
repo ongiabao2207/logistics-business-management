@@ -1,0 +1,102 @@
+logistics-business-management/
+|
+|-- README.md
+|-- AGENTS.md
+|-- .gitignore
+|-- .env.example
+|
+|-- .codex/
+|   `-- config.toml
+|
+|-- .agents/
+|   `-- skills/
+|       |-- implement-feature/
+|       |   `-- SKILL.md
+|       |-- fix-bug/
+|       |   `-- SKILL.md
+|       `-- change-service-contract/
+|           `-- SKILL.md
+|
+|-- .github/
+|   |-- CODEOWNERS
+|   |-- pull_request_template.md
+|   `-- workflows/
+|       `-- ci.yml
+|
+|-- docs/
+|   |-- source/
+|   |   |-- QTKD_DATH.pdf
+|   |   |-- UDPT-03_Report.pdf
+|   |   `-- Data-sample.pdf
+|   |
+|   |-- requirements/
+|   |   |-- business-rules.md
+|   |   |-- business-scenarios.md
+|   |   `-- use-cases.md
+|   |
+|   `-- architecture/
+|       |-- system-overview.md
+|       |-- service-boundaries.md
+|       |-- communication.md
+|       `-- database-ownership.md
+|
+|-- frontend/
+|   |-- AGENTS.md
+|   |-- src/
+|   `-- tests/
+|
+|-- services/
+|   |-- identity-service/
+|   |-- customer-service/
+|   |-- contract-service/
+|   |   |-- AGENTS.md
+|   |   |-- README.md
+|   |   |-- Dockerfile
+|   |   |-- pyproject.toml
+|   |   |-- .env.example
+|   |   |
+|   |   |-- app/
+|   |   |   |-- main.py
+|   |   |   |-- api/
+|   |   |   |   `-- routes/
+|   |   |   |-- schemas/
+|   |   |   |-- models/
+|   |   |   |-- services/
+|   |   |   |-- crud/
+|   |   |   |-- clients/
+|   |   |   |-- messaging/
+|   |   |   |-- db/
+|   |   |   `-- core/
+|   |   |
+|   |   |-- migrations/
+|   |   `-- tests/
+|   |       |-- unit/
+|   |       `-- integration/
+|   |-- price-service/
+|   |-- production-service/
+|   |-- payment-service/
+|   |-- approval-service/
+|   |-- notification-service/
+|   `-- audit-log-service/
+|
+|-- contracts/
+|   |-- events/
+|   `-- examples/
+|
+|-- infra/
+|   |-- docker/
+|   |   `-- docker-compose.yml
+|   |-- traefik/
+|   |-- rabbitmq/
+|   |-- redis/
+|   `-- kubernetes/
+|
+|-- scripts/
+|   |-- dev/
+|   `-- seed/
+|
+`-- tests/
+    |-- integration/
+    |-- contract/
+    |-- acceptance/
+    `-- e2e/
