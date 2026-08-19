@@ -39,9 +39,54 @@ Never:
 
 Contract Service -> Price Service database
 
+## External service dependencies during development
+
+Before implementing a feature that depends on another service:
+
+1. Inspect the dependent service under `services/`.
+2. Check whether the required API or event contract is already implemented and usable.
+3. Do not assume a service is available merely because its directory exists.
+
+If the dependent service is available:
+
+- use its documented public API through the appropriate client;
+- do not duplicate its data or business logic.
+
+If the dependent service is not implemented or not currently usable:
+
+- do not block implementation of the current service;
+- do not require the unavailable service to run locally;
+- use a fake/mock/test-double implementation of the corresponding client;
+- keep the fake/mock compatible with the planned public contract;
+- use deterministic project sample data when appropriate.
+
+Never implement another service's business logic inside the current service just to replace an unavailable dependency.
+
+Mocks and fakes are temporary development/testing substitutes and must be easy to replace with real integrations later.
+
+## Client abstraction
+
+Business logic must depend on client abstractions rather than direct HTTP calls.
+
+External clients should support interchangeable implementations when needed, for example:
+
+CustomerClient
+- HttpCustomerClient
+- FakeCustomerClient
+
+PriceClient
+- HttpPriceClient
+- FakePriceClient
+
+ApprovalClient
+- HttpApprovalClient
+- FakeApprovalClient
+
+Application code should select the appropriate implementation through configuration or dependency injection.
+
 ## Git workflow
 
-Before adding any new features or fix bugs, always work on a new git branch.
+Before adding any new features or fix bugs, always work on a new git branch.  
 Never commit directly on `main`.
 
 Branch naming convention:
@@ -68,7 +113,9 @@ Do not include unrelated changes.
 2. Read the service-level `AGENTS.md`.
 3. Inspect existing implementation.
 4. Identify affected service contracts.
-5. Propose a plan before making non-trivial changes.
+5. Inspect whether required dependent services are currently available.
+6. Decide which dependencies use real clients and which require fakes/mocks.
+7. Propose a plan before making non-trivial changes.
 
 ## Testing
 
@@ -79,6 +126,10 @@ After changing a service:
 3. Run contract tests when an API/event contract changes.
 
 Bug fixes should include a regression test.
+
+Unit tests should isolate external service dependencies using mocks/fakes where appropriate.
+
+Integration tests may use real dependent services when they are available.
 
 ## Cross-service changes
 
@@ -93,16 +144,16 @@ When changing a contract:
 
 ## Source of truth
 
-Business requirements:
+Business requirements:  
 `docs/requirements/`
 
-Architecture:
+Architecture:  
 `docs/architecture/`
 
-Original assignment/design:
+Original assignment/design:  
 `docs/source/`
 
-If implementation conflicts with documented business rules,
+If implementation conflicts with documented business rules,  
 report the conflict instead of silently changing the rule.
 
 ## Safety
