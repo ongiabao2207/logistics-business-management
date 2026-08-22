@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -5,6 +7,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.clients.customer_client import CustomerInfo
+from app.clients.price_client import ServicePriceInfo
 from app.db.base import Base
 from app.db.session import get_db
 from app.routers.contract_router import get_contract_service, router
@@ -17,6 +20,18 @@ class StubCustomerClient:
 
     def get_customer(self, customer_id: str) -> CustomerInfo | None:
         return self.customer
+
+
+class StubPriceClient:
+    def get_service_price(self, service_id: int) -> ServicePriceInfo | None:
+        if service_id == 1:
+            return ServicePriceInfo(
+                service_id=1,
+                service_name="Container handling",
+                service_unit="container",
+                service_price=Decimal("1200000.00"),
+            )
+        return None
 
 
 def build_client(customer: CustomerInfo | None):
@@ -36,7 +51,10 @@ def build_client(customer: CustomerInfo | None):
             db.close()
 
     def override_get_contract_service():
-        return ContractService(customer_client=StubCustomerClient(customer))
+        return ContractService(
+            customer_client=StubCustomerClient(customer),
+            price_client=StubPriceClient(),
+        )
 
     app = FastAPI()
     app.include_router(router)
@@ -52,6 +70,7 @@ def valid_payload():
         "valid_from": "2026-01-01",
         "valid_to": "2026-12-31",
         "payment_terms": "Monthly payment within 15 days",
+        "service_ids": [1],
     }
 
 
@@ -66,6 +85,8 @@ def test_post_contracts_creates_draft_contract():
     assert body["customer_id"] == "customer-active"
     assert body["status"] == "DRAFT"
     assert body["payment_terms"] == "Monthly payment within 15 days"
+    assert body["services"][0]["service_id"] == 1
+    assert body["services"][0]["service_name"] == "Container handling"
 
 
 def test_post_contracts_returns_not_found_for_missing_customer():
@@ -87,3 +108,14 @@ def test_post_contracts_rejects_invalid_effective_period():
 
     assert response.status_code == 422
     assert response.json()["detail"] == "valid_from must not be later than valid_to"
+
+
+def test_post_contracts_rejects_unknown_service_id():
+    client = build_client(CustomerInfo(id="customer-active", active=True))
+    payload = valid_payload()
+    payload["service_ids"] = [999]
+
+    response = client.post("/contracts", json=payload)
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "service_id values are not available: 999"
