@@ -1,0 +1,20 @@
+[project]
+name = "contract-service"
+version = "0.1.0"
+description = "Contract Service for the Logistics Business Management System"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "sqlalchemy",
+    "uvicorn",
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx",
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
