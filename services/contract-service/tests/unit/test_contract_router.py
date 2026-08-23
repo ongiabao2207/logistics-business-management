@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
@@ -162,6 +163,7 @@ def test_get_contract_detail_returns_services_without_service_id():
     body = response.json()
     assert body["contract_id"] == contract_id
     assert body["customer_name"] == "Samsung Electronics HCMC"
+    assert body["payment_terms"] == "Monthly payment within 15 days"
     assert body["total_value"] == "2400000.00"
     assert body["updated_at"]
     assert body["services"][0]["service_name"] == "Container handling"
@@ -176,3 +178,68 @@ def test_get_contract_detail_returns_not_found_for_unknown_contract():
 
     assert response.status_code == 404
     assert response.json()["detail"] == "contract does not exist"
+
+
+def test_patch_contract_status_updates_status():
+    client = build_client(active_customer())
+    create_response = client.post("/contracts", json=valid_payload())
+    contract_id = create_response.json()["id"]
+
+    response = client.patch(
+        f"/contracts/{contract_id}/status",
+        json={"status": "SUBMITTED"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "SUBMITTED"
+
+
+def test_patch_contract_status_rejects_invalid_transition():
+    client = build_client(active_customer())
+    create_response = client.post("/contracts", json=valid_payload())
+    contract_id = create_response.json()["id"]
+
+    response = client.patch(
+        f"/contracts/{contract_id}/status",
+        json={"status": "ACTIVE"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_patch_contract_updates_draft_contract():
+    client = build_client(active_customer())
+    create_response = client.post("/contracts", json=valid_payload())
+    contract_id = create_response.json()["id"]
+    new_valid_from = date.today() + timedelta(days=30)
+    new_valid_to = date.today() + timedelta(days=300)
+
+    response = client.patch(
+        f"/contracts/{contract_id}",
+        json={
+            "valid_from": new_valid_from.isoformat(),
+            "valid_to": new_valid_to.isoformat(),
+            "payment_terms": "Payment within 30 days",
+            "services": [{"service_id": 1, "quantity": 3}],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["valid_from"] == new_valid_from.isoformat()
+    assert body["valid_to"] == new_valid_to.isoformat()
+    assert body["payment_terms"] == "Payment within 30 days"
+    assert body["total_value"] == "3600000.00"
+    assert body["services"][0]["quantity"] == 3
+
+
+def test_delete_contract_deletes_draft_contract():
+    client = build_client(active_customer())
+    create_response = client.post("/contracts", json=valid_payload())
+    contract_id = create_response.json()["id"]
+
+    response = client.delete(f"/contracts/{contract_id}")
+    detail_response = client.get(f"/contracts/{contract_id}")
+
+    assert response.status_code == 204
+    assert detail_response.status_code == 404
