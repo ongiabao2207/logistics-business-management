@@ -13,7 +13,7 @@ from app.schemas.price_schema import (
 from app.services import price_service
 
 
-router = APIRouter()
+router = APIRouter(prefix="/api/v1")
 
 
 @router.post("/services", response_model=ServiceResponse, status_code=201)

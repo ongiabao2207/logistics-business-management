@@ -17,7 +17,7 @@ def create_app() -> FastAPI:
     ) -> JSONResponse:
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
-    @application.get("/health", tags=["health"])
+    @application.get("/api/v1/health", tags=["health"])
     def health_check() -> dict[str, str]:
         return {"status": "ok", "service": "price-service"}
 
