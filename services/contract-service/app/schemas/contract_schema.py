@@ -25,6 +25,7 @@ class ContractStatusUpdate(BaseModel):
 class ContractUpdate(BaseModel):
     valid_from: date | None = None
     valid_to: date | None = None
+    payment_terms: str | None = Field(default=None, min_length=1, max_length=255)
     services: list[ContractServiceCreate] | None = Field(default=None, min_length=1)
 
 
@@ -57,6 +58,7 @@ class ContractDetailServiceRead(BaseModel):
 
 
 class ContractDetailRead(ContractSummaryRead):
+    payment_terms: str
     updated_at: datetime
     services: list[ContractDetailServiceRead]
 

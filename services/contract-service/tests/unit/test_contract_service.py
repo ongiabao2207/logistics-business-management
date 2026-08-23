@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
@@ -297,29 +297,38 @@ def test_update_contract_status_rejects_invalid_transition(db_session):
 def test_update_contract_modifies_draft_dates_and_replaces_services(db_session):
     service = make_service()
     contract = service.create_contract(db_session, make_contract_create())
+    new_valid_from = date.today() + timedelta(days=30)
+    new_valid_to = date.today() + timedelta(days=300)
 
     updated = service.update_contract(
         db_session,
         contract.id,
         ContractUpdate(
-            valid_from=date(2026, 2, 1),
-            valid_to=date(2026, 11, 30),
+            valid_from=new_valid_from,
+            valid_to=new_valid_to,
+            payment_terms="Payment within 30 days",
             services=[{"service_id": 2, "quantity": 4}],
         ),
     )
 
-    assert updated.valid_from == date(2026, 2, 1)
-    assert updated.valid_to == date(2026, 11, 30)
+    persisted_contract = db_session.get(Contract, contract.id)
+
+    assert updated.valid_from == new_valid_from
+    assert updated.valid_to == new_valid_to
+    assert updated.payment_terms == "Payment within 30 days"
     assert updated.total_value == Decimal("600000.00")
     assert len(updated.services) == 1
     assert updated.services[0].service_name == "Warehouse storage"
     assert updated.services[0].quantity == 4
+    assert persisted_contract.payment_terms == "Payment within 30 days"
+    assert persisted_contract.updated_at == updated.updated_at
     assert db_session.query(ContractServiceModel).count() == 1
 
 
 def test_update_contract_rejects_non_draft_contract(db_session):
     service = make_service()
     contract = service.create_contract(db_session, make_contract_create())
+    new_valid_from = date.today() + timedelta(days=30)
     service.update_contract_status(
         db_session, contract.id, ContractStatusUpdate(status="SUBMITTED")
     )
@@ -328,13 +337,71 @@ def test_update_contract_rejects_non_draft_contract(db_session):
         service.update_contract(
             db_session,
             contract.id,
-            ContractUpdate(valid_from=date(2026, 2, 1)),
+            ContractUpdate(valid_from=new_valid_from),
         )
+
+
+def test_update_contract_rejects_non_future_valid_from(db_session):
+    service = make_service()
+    contract = service.create_contract(db_session, make_contract_create())
+
+    with pytest.raises(ContractValidationError) as exc:
+        service.update_contract(
+            db_session,
+            contract.id,
+            ContractUpdate(
+                valid_from=date.today(),
+                valid_to=date.today() + timedelta(days=30),
+            ),
+        )
+
+    assert str(exc.value) == "valid_from must be greater than current date"
+
+
+def test_update_contract_rejects_valid_to_not_after_valid_from(db_session):
+    service = make_service()
+    contract = service.create_contract(db_session, make_contract_create())
+    new_valid_from = date.today() + timedelta(days=30)
+
+    with pytest.raises(ContractValidationError) as exc:
+        service.update_contract(
+            db_session,
+            contract.id,
+            ContractUpdate(valid_from=new_valid_from, valid_to=new_valid_from),
+        )
+
+    assert str(exc.value) == "valid_to must be greater than valid_from"
+
+
+def test_update_contract_updates_parent_timestamp_for_service_only_change(db_session):
+    service = make_service()
+    contract = service.create_contract(
+        db_session,
+        make_contract_create(
+            valid_from=date.today() + timedelta(days=30),
+            valid_to=date.today() + timedelta(days=300),
+        ),
+    )
+    original_updated_at = contract.updated_at
+
+    updated = service.update_contract(
+        db_session,
+        contract.id,
+        ContractUpdate(services=[{"service_id": 2, "quantity": 4}]),
+    )
+
+    assert updated.updated_at > original_updated_at
 
 
 def test_update_contract_rejects_unknown_service_id(db_session):
     service = make_service()
-    contract = service.create_contract(db_session, make_contract_create())
+    contract = service.create_contract(
+        db_session,
+        make_contract_create(
+            valid_from=date.today() + timedelta(days=30),
+            valid_to=date.today() + timedelta(days=300),
+        ),
+    )
 
     with pytest.raises(ContractServiceUnavailableError):
         service.update_contract(

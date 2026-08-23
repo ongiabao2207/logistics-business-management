@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
@@ -111,7 +112,7 @@ class ContractService:
 
         valid_from = contract_in.valid_from or contract.valid_from
         valid_to = contract_in.valid_to or contract.valid_to
-        self._validate_effective_dates(valid_from, valid_to)
+        self._validate_update_effective_dates(valid_from, valid_to)
 
         service_prices = None
         if contract_in.services is not None:
@@ -135,9 +136,18 @@ class ContractService:
     def _validate_effective_period(self, contract_in: ContractCreate) -> None:
         self._validate_effective_dates(contract_in.valid_from, contract_in.valid_to)
 
-    def _validate_effective_dates(self, valid_from, valid_to) -> None:
+    def _validate_effective_dates(self, valid_from: date, valid_to: date) -> None:
         if valid_from > valid_to:
             raise ContractValidationError("valid_from must not be later than valid_to")
+
+    def _validate_update_effective_dates(
+        self, valid_from: date, valid_to: date
+    ) -> None:
+        if valid_from <= date.today():
+            raise ContractValidationError("valid_from must be greater than current date")
+
+        if valid_to <= valid_from:
+            raise ContractValidationError("valid_to must be greater than valid_from")
 
     def _validate_customer(self, customer_id: str) -> None:
         customer = self.customer_client.get_customer(customer_id)
@@ -222,6 +232,7 @@ class ContractService:
         summary = self._to_summary(contract)
         return ContractDetailRead(
             **summary.model_dump(),
+            payment_terms=contract.payment_terms,
             updated_at=contract.updated_at,
             services=[
                 ContractDetailServiceRead(

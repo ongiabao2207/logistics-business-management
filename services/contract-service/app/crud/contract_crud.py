@@ -3,7 +3,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.clients.price_client import ServicePriceInfo
-from app.models.contract_model import Contract, ContractService as ContractServiceModel
+from app.models.contract_model import (
+    Contract,
+    ContractService as ContractServiceModel,
+    utc_now,
+)
 from app.schemas.contract_schema import ContractCreate, ContractServiceCreate, ContractUpdate
 
 
@@ -51,6 +55,7 @@ class ContractCRUD:
 
     def update_status(self, db: Session, contract: Contract, status: str) -> Contract:
         contract.status = status
+        contract.updated_at = utc_now()
         db.add(contract)
         db.commit()
         db.refresh(contract)
@@ -69,6 +74,9 @@ class ContractCRUD:
         if contract_in.valid_to is not None:
             contract.valid_to = contract_in.valid_to
 
+        if contract_in.payment_terms is not None:
+            contract.payment_terms = contract_in.payment_terms
+
         if service_prices is not None:
             contract.services = [
                 ContractServiceModel(
@@ -81,6 +89,7 @@ class ContractCRUD:
                 for service_in, service_price in service_prices
             ]
 
+        contract.updated_at = utc_now()
         db.add(contract)
         db.commit()
         db.refresh(contract)
