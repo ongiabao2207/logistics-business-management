@@ -6,7 +6,9 @@ from typing import Protocol
 class CustomerInfo:
     id: str
     name: str
-    active: bool
+    tax_code: str
+    customer_type: str
+    status: str
 
 
 class CustomerClient(Protocol):
@@ -16,22 +18,45 @@ class CustomerClient(Protocol):
 
 class FakeCustomerClient:
     _customers = {
-        "customer-active": CustomerInfo(
-            id="customer-active", name="Active Customer Co.", active=True
+        "KH0001": CustomerInfo(
+            id="KH0001",
+            name="Samsung Electronics HCMC",
+            tax_code="0312345678",
+            customer_type="Logistics",
+            status="ACTIVE",
         ),
-        "customer-inactive": CustomerInfo(
-            id="customer-inactive", name="Inactive Customer Co.", active=False
+        "KH0002": CustomerInfo(
+            id="KH0002",
+            name="Vinamilk",
+            tax_code="0300588569",
+            customer_type="FMCG",
+            status="ACTIVE",
+        ),
+        "KH0003": CustomerInfo(
+            id="KH0003",
+            name="Thaco Logistics",
+            tax_code="4000123456",
+            customer_type="Logistics",
+            status="ACTIVE",
+        ),
+        "KH0004": CustomerInfo(
+            id="KH0004",
+            name="Nestle Viet Nam",
+            tax_code="0302012345",
+            customer_type="FMCG",
+            status="ACTIVE",
+        ),
+        "KH0005": CustomerInfo(
+            id="KH0005",
+            name="Intel Products Vietnam",
+            tax_code="0309876543",
+            customer_type="Manufacturing",
+            status="ACTIVE",
         ),
     }
 
     def get_customer(self, customer_id: str) -> CustomerInfo | None:
-        if customer_id in self._customers:
-            return self._customers[customer_id]
-
-        if customer_id.startswith("missing"):
-            return None
-
-        return CustomerInfo(id=customer_id, name=f"Customer {customer_id}", active=True)
+        return self._customers.get(customer_id)
 
 
 def get_customer_client() -> CustomerClient:

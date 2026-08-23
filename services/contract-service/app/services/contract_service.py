@@ -91,8 +91,8 @@ class ContractService:
         if customer is None:
             raise CustomerNotFoundError("customer does not exist")
 
-        if not customer.active:
-            raise CustomerInactiveError("customer is inactive")
+        if customer.status != "ACTIVE":
+            raise CustomerInactiveError("customer is not active")
 
     def _resolve_service_prices(
         self, services: list[ContractServiceCreate]

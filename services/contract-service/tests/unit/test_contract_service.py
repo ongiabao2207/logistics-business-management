@@ -6,7 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.clients.customer_client import CustomerClient, CustomerInfo
+from app.clients.customer_client import CustomerClient, CustomerInfo, FakeCustomerClient
 from app.clients.price_client import ServicePriceInfo
 from app.db.base import Base
 from app.models.contract_model import Contract, ContractService as ContractServiceModel
@@ -65,7 +65,7 @@ def db_session():
 
 def make_contract_create(**overrides):
     data = {
-        "customer_id": "customer-active",
+        "customer_id": "KH0001",
         "valid_from": date(2026, 1, 1),
         "valid_to": date(2026, 12, 31),
         "payment_terms": "Monthly payment within 15 days",
@@ -73,6 +73,20 @@ def make_contract_create(**overrides):
     }
     data.update(overrides)
     return ContractCreate(**data)
+
+
+def customer_info(
+    customer_id: str = "KH0001",
+    name: str = "Samsung Electronics HCMC",
+    status: str = "ACTIVE",
+) -> CustomerInfo:
+    return CustomerInfo(
+        id=customer_id,
+        name=name,
+        tax_code="0312345678",
+        customer_type="Logistics",
+        status=status,
+    )
 
 
 def price_client() -> StubPriceClient:
@@ -96,13 +110,7 @@ def price_client() -> StubPriceClient:
 
 def make_service() -> ContractService:
     return ContractService(
-        customer_client=StubCustomerClient(
-            CustomerInfo(
-                id="customer-active",
-                name="Active Customer Co.",
-                active=True,
-            )
-        ),
+        customer_client=StubCustomerClient(customer_info()),
         price_client=price_client(),
     )
 
@@ -130,7 +138,7 @@ def test_create_contract_saves_draft_with_service_snapshots(db_session):
 
     assert contract.id
     assert contract.status == "DRAFT"
-    assert contract.customer_id == "customer-active"
+    assert contract.customer_id == "KH0001"
     assert db_session.query(Contract).count() == 1
     assert db_session.query(ContractServiceModel).count() == 2
     assert [service.service_id for service in contract.services] == [1, 2]
@@ -152,11 +160,7 @@ def test_create_contract_rejects_missing_customer(db_session):
 def test_create_contract_rejects_inactive_customer(db_session):
     service = ContractService(
         customer_client=StubCustomerClient(
-            CustomerInfo(
-                id="customer-inactive",
-                name="Inactive Customer Co.",
-                active=False,
-            )
+            customer_info(customer_id="KH9999", name="Locked Customer", status="LOCKED")
         ),
         price_client=StubPriceClient({}),
     )
@@ -217,7 +221,7 @@ def test_list_contracts_returns_core_information(db_session):
     contracts = service.list_contracts(db_session)
 
     assert len(contracts) == 1
-    assert contracts[0].customer_name == "Active Customer Co."
+    assert contracts[0].customer_name == "Samsung Electronics HCMC"
     assert contracts[0].total_value == Decimal("2850000.00")
     assert contracts[0].status == "DRAFT"
 
@@ -231,7 +235,7 @@ def test_get_contract_detail_returns_services_without_service_ids(db_session):
     detail = service.get_contract_detail(db_session, contract.id)
 
     assert detail.contract_id == contract.id
-    assert detail.customer_name == "Active Customer Co."
+    assert detail.customer_name == "Samsung Electronics HCMC"
     assert detail.total_value == Decimal("2850000.00")
     assert detail.updated_at == contract.updated_at
     assert len(detail.services) == 2
@@ -255,3 +259,11 @@ def test_contract_views_use_unknown_customer_fallback(db_session):
     contracts = view_service.list_contracts(db_session)
 
     assert contracts[0].customer_name == "Unknown Customer"
+
+
+def test_fake_customer_client_only_accepts_sample_customer_ids():
+    client = FakeCustomerClient()
+
+    assert client.get_customer("KH0001") is not None
+    assert client.get_customer("customer-active") is None
+    assert client.get_customer("KH9999") is None

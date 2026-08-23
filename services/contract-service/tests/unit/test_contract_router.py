@@ -70,7 +70,7 @@ def build_client(customer: CustomerInfo | None):
 
 def valid_payload():
     return {
-        "customer_id": "customer-active",
+        "customer_id": "KH0001",
         "valid_from": "2026-01-01",
         "valid_to": "2026-12-31",
         "payment_terms": "Monthly payment within 15 days",
@@ -80,7 +80,11 @@ def valid_payload():
 
 def active_customer():
     return CustomerInfo(
-        id="customer-active", name="Active Customer Co.", active=True
+        id="KH0001",
+        name="Samsung Electronics HCMC",
+        tax_code="0312345678",
+        customer_type="Logistics",
+        status="ACTIVE",
     )
 
 
@@ -92,7 +96,7 @@ def test_post_contracts_creates_draft_contract():
     assert response.status_code == 201
     body = response.json()
     assert body["id"]
-    assert body["customer_id"] == "customer-active"
+    assert body["customer_id"] == "KH0001"
     assert body["status"] == "DRAFT"
     assert body["payment_terms"] == "Monthly payment within 15 days"
     assert body["services"][0]["service_id"] == 1
@@ -142,7 +146,7 @@ def test_get_contracts_returns_summaries():
     body = response.json()
     assert len(body) == 1
     assert body[0]["contract_id"]
-    assert body[0]["customer_name"] == "Active Customer Co."
+    assert body[0]["customer_name"] == "Samsung Electronics HCMC"
     assert body[0]["total_value"] == "2400000.00"
     assert body[0]["status"] == "DRAFT"
 
@@ -157,7 +161,7 @@ def test_get_contract_detail_returns_services_without_service_id():
     assert response.status_code == 200
     body = response.json()
     assert body["contract_id"] == contract_id
-    assert body["customer_name"] == "Active Customer Co."
+    assert body["customer_name"] == "Samsung Electronics HCMC"
     assert body["total_value"] == "2400000.00"
     assert body["updated_at"]
     assert body["services"][0]["service_name"] == "Container handling"
