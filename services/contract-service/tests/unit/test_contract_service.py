@@ -8,10 +8,16 @@ from sqlalchemy.pool import StaticPool
 
 from app.clients.customer_client import CustomerClient, CustomerInfo, FakeCustomerClient
 from app.clients.price_client import ServicePriceInfo
+from app.crud.contract_crud import ContractCRUD
 from app.db.base import Base
-from app.models.contract_model import Contract, ContractService as ContractServiceModel
+from app.models.contract_model import (
+    Contract,
+    ContractService as ContractServiceModel,
+    ContractYearSequence,
+)
 from app.schemas.contract_schema import ContractCreate
 from app.services.contract_service import (
+    ContractNumberLimitError,
     ContractNotFoundError,
     ContractService,
     ContractServiceUnavailableError,
@@ -19,6 +25,7 @@ from app.services.contract_service import (
     CustomerInactiveError,
     CustomerNotFoundError,
     DuplicateContractServiceError,
+    IdempotencyConflictError,
 )
 
 
@@ -115,6 +122,14 @@ def make_service() -> ContractService:
     )
 
 
+def make_service_for_year(year: int) -> ContractService:
+    return ContractService(
+        customer_client=StubCustomerClient(customer_info()),
+        price_client=price_client(),
+        crud=ContractCRUD(current_year=lambda: year),
+    )
+
+
 def make_contract_service(customer_client: CustomerClient) -> ContractService:
     return ContractService(
         customer_client=customer_client,
@@ -133,10 +148,12 @@ def test_create_contract_saves_draft_with_service_snapshots(db_session):
     service = make_service()
 
     contract = service.create_contract(
-        db_session, make_contract_create(services=multi_service_payload())
+        db_session,
+        make_contract_create(services=multi_service_payload()),
+        "create-contract-1",
     )
 
-    assert contract.id
+    assert contract.id == f"HD-{date.today().year}-001"
     assert contract.status == "DRAFT"
     assert contract.customer_id == "KH0001"
     assert db_session.query(Contract).count() == 1
@@ -154,7 +171,7 @@ def test_create_contract_rejects_missing_customer(db_session):
     )
 
     with pytest.raises(CustomerNotFoundError):
-        service.create_contract(db_session, make_contract_create())
+        service.create_contract(db_session, make_contract_create(), "missing-customer")
 
 
 def test_create_contract_rejects_inactive_customer(db_session):
@@ -166,7 +183,7 @@ def test_create_contract_rejects_inactive_customer(db_session):
     )
 
     with pytest.raises(CustomerInactiveError):
-        service.create_contract(db_session, make_contract_create())
+        service.create_contract(db_session, make_contract_create(), "inactive-customer")
 
 
 def test_create_contract_rejects_invalid_effective_period(db_session):
@@ -179,6 +196,7 @@ def test_create_contract_rejects_invalid_effective_period(db_session):
                 valid_from=date(2026, 12, 31),
                 valid_to=date(2026, 1, 1),
             ),
+            "invalid-period",
         )
 
 
@@ -194,6 +212,7 @@ def test_create_contract_rejects_duplicate_service_ids(db_session):
                     {"service_id": 1, "quantity": 3},
                 ]
             ),
+            "duplicate-service",
         )
 
 
@@ -204,6 +223,7 @@ def test_create_contract_rejects_unavailable_service_id(db_session):
         service.create_contract(
             db_session,
             make_contract_create(services=[{"service_id": 999, "quantity": 1}]),
+            "unavailable-service",
         )
 
 
@@ -215,7 +235,9 @@ def test_create_contract_rejects_non_positive_quantity():
 def test_list_contracts_returns_core_information(db_session):
     service = make_service()
     service.create_contract(
-        db_session, make_contract_create(services=multi_service_payload())
+        db_session,
+        make_contract_create(services=multi_service_payload()),
+        "list-contracts",
     )
 
     contracts = service.list_contracts(db_session)
@@ -229,7 +251,9 @@ def test_list_contracts_returns_core_information(db_session):
 def test_get_contract_detail_returns_services_without_service_ids(db_session):
     service = make_service()
     contract = service.create_contract(
-        db_session, make_contract_create(services=multi_service_payload())
+        db_session,
+        make_contract_create(services=multi_service_payload()),
+        "get-detail",
     )
 
     detail = service.get_contract_detail(db_session, contract.id)
@@ -253,12 +277,76 @@ def test_get_contract_detail_rejects_unknown_contract(db_session):
 
 def test_contract_views_use_unknown_customer_fallback(db_session):
     create_service = make_service()
-    create_service.create_contract(db_session, make_contract_create())
+    create_service.create_contract(db_session, make_contract_create(), "unknown-customer")
     view_service = make_contract_service(StubCustomerClient(None))
 
     contracts = view_service.list_contracts(db_session)
 
     assert contracts[0].customer_name == "Unknown Customer"
+
+
+def test_create_contract_increments_yearly_contract_id_sequence(db_session):
+    service = make_service_for_year(2026)
+
+    first_contract = service.create_contract(
+        db_session, make_contract_create(), "create-2026-1"
+    )
+    second_contract = service.create_contract(
+        db_session, make_contract_create(), "create-2026-2"
+    )
+
+    assert first_contract.id == "HD-2026-001"
+    assert second_contract.id == "HD-2026-002"
+
+
+def test_create_contract_resets_contract_id_sequence_for_new_year(db_session):
+    service_2026 = make_service_for_year(2026)
+    service_2027 = make_service_for_year(2027)
+
+    service_2026.create_contract(db_session, make_contract_create(), "create-2026")
+    contract_2027 = service_2027.create_contract(
+        db_session, make_contract_create(), "create-2027"
+    )
+
+    assert contract_2027.id == "HD-2027-001"
+
+
+def test_create_contract_is_idempotent_for_same_key_and_payload(db_session):
+    service = make_service_for_year(2026)
+    contract_in = make_contract_create()
+
+    first_contract = service.create_contract(db_session, contract_in, "same-key")
+    retry_contract = service.create_contract(db_session, contract_in, "same-key")
+
+    assert first_contract.id == "HD-2026-001"
+    assert retry_contract.id == first_contract.id
+    assert db_session.query(Contract).count() == 1
+
+
+def test_create_contract_rejects_same_idempotency_key_with_different_payload(
+    db_session,
+):
+    service = make_service_for_year(2026)
+
+    service.create_contract(db_session, make_contract_create(), "same-key")
+
+    with pytest.raises(IdempotencyConflictError):
+        service.create_contract(
+            db_session,
+            make_contract_create(payment_terms="Payment within 30 days"),
+            "same-key",
+        )
+
+
+def test_create_contract_rejects_when_yearly_contract_number_limit_is_reached(
+    db_session,
+):
+    service = make_service_for_year(2026)
+    db_session.add(ContractYearSequence(year=2026, last_number=999))
+    db_session.commit()
+
+    with pytest.raises(ContractNumberLimitError):
+        service.create_contract(db_session, make_contract_create(), "limit-reached")
 
 
 def test_fake_customer_client_only_accepts_sample_customer_ids():

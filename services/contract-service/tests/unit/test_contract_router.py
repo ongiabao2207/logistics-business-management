@@ -88,14 +88,20 @@ def active_customer():
     )
 
 
+def idempotency_headers(key: str = "create-contract-key"):
+    return {"Idempotency-Key": key}
+
+
 def test_post_contracts_creates_draft_contract():
     client = build_client(active_customer())
 
-    response = client.post("/contracts", json=valid_payload())
+    response = client.post(
+        "/contracts", json=valid_payload(), headers=idempotency_headers()
+    )
 
     assert response.status_code == 201
     body = response.json()
-    assert body["id"]
+    assert body["id"].startswith("HD-")
     assert body["customer_id"] == "KH0001"
     assert body["status"] == "DRAFT"
     assert body["payment_terms"] == "Monthly payment within 15 days"
@@ -107,7 +113,9 @@ def test_post_contracts_creates_draft_contract():
 def test_post_contracts_returns_not_found_for_missing_customer():
     client = build_client(None)
 
-    response = client.post("/contracts", json=valid_payload())
+    response = client.post(
+        "/contracts", json=valid_payload(), headers=idempotency_headers()
+    )
 
     assert response.status_code == 404
     assert response.json()["detail"] == "customer does not exist"
@@ -119,7 +127,7 @@ def test_post_contracts_rejects_invalid_effective_period():
     payload["valid_from"] = "2026-12-31"
     payload["valid_to"] = "2026-01-01"
 
-    response = client.post("/contracts", json=payload)
+    response = client.post("/contracts", json=payload, headers=idempotency_headers())
 
     assert response.status_code == 422
     assert response.json()["detail"] == "valid_from must not be later than valid_to"
@@ -130,7 +138,7 @@ def test_post_contracts_rejects_unknown_service_id():
     payload = valid_payload()
     payload["services"] = [{"service_id": 999, "quantity": 1}]
 
-    response = client.post("/contracts", json=payload)
+    response = client.post("/contracts", json=payload, headers=idempotency_headers())
 
     assert response.status_code == 422
     assert response.json()["detail"] == "service_id values are not available: 999"
@@ -138,7 +146,7 @@ def test_post_contracts_rejects_unknown_service_id():
 
 def test_get_contracts_returns_summaries():
     client = build_client(active_customer())
-    client.post("/contracts", json=valid_payload())
+    client.post("/contracts", json=valid_payload(), headers=idempotency_headers())
 
     response = client.get("/contracts")
 
@@ -153,7 +161,9 @@ def test_get_contracts_returns_summaries():
 
 def test_get_contract_detail_returns_services_without_service_id():
     client = build_client(active_customer())
-    create_response = client.post("/contracts", json=valid_payload())
+    create_response = client.post(
+        "/contracts", json=valid_payload(), headers=idempotency_headers()
+    )
     contract_id = create_response.json()["id"]
 
     response = client.get(f"/contracts/{contract_id}")
@@ -176,3 +186,45 @@ def test_get_contract_detail_returns_not_found_for_unknown_contract():
 
     assert response.status_code == 404
     assert response.json()["detail"] == "contract does not exist"
+
+
+def test_post_contracts_returns_bad_request_when_idempotency_key_is_missing():
+    client = build_client(active_customer())
+
+    response = client.post("/contracts", json=valid_payload())
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Idempotency-Key header is required"
+
+
+def test_post_contracts_returns_same_contract_for_idempotent_retry():
+    client = build_client(active_customer())
+
+    first_response = client.post(
+        "/contracts", json=valid_payload(), headers=idempotency_headers("same-key")
+    )
+    retry_response = client.post(
+        "/contracts", json=valid_payload(), headers=idempotency_headers("same-key")
+    )
+
+    assert retry_response.status_code == 201
+    assert retry_response.json()["id"] == first_response.json()["id"]
+
+
+def test_post_contracts_returns_conflict_for_reused_key_with_different_payload():
+    client = build_client(active_customer())
+    changed_payload = valid_payload()
+    changed_payload["payment_terms"] = "Payment within 30 days"
+
+    client.post(
+        "/contracts", json=valid_payload(), headers=idempotency_headers("same-key")
+    )
+    response = client.post(
+        "/contracts", json=changed_payload, headers=idempotency_headers("same-key")
+    )
+
+    assert response.status_code == 409
+    assert (
+        response.json()["detail"]
+        == "idempotency key was already used with a different request"
+    )

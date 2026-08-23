@@ -3,6 +3,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy import UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -15,9 +16,7 @@ def utc_now() -> datetime:
 class Contract(Base):
     __tablename__ = "contract"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
     customer_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     valid_from: Mapped[date] = mapped_column(Date, nullable=False)
     valid_to: Mapped[date] = mapped_column(Date, nullable=False)
@@ -107,3 +106,35 @@ class AppendixChangeDetail(Base):
     action_type: Mapped[str] = mapped_column(String(100), nullable=False)
 
     appendix: Mapped[ContractAppendix] = relationship(back_populates="change_details")
+
+
+class ContractYearSequence(Base):
+    __tablename__ = "contract_year_sequence"
+
+    year: Mapped[int] = mapped_column(Integer, primary_key=True)
+    last_number: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class IdempotencyRecord(Base):
+    __tablename__ = "idempotency_record"
+    __table_args__ = (
+        UniqueConstraint(
+            "endpoint",
+            "idempotency_key",
+            name="uq_idempotency_endpoint_key",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        primary_key=True,
+        autoincrement=True,
+    )
+    endpoint: Mapped[str] = mapped_column(String(100), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    resource_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    resource_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=utc_now
+    )
