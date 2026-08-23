@@ -176,3 +176,64 @@ def test_get_contract_detail_returns_not_found_for_unknown_contract():
 
     assert response.status_code == 404
     assert response.json()["detail"] == "contract does not exist"
+
+
+def test_patch_contract_status_updates_status():
+    client = build_client(active_customer())
+    create_response = client.post("/contracts", json=valid_payload())
+    contract_id = create_response.json()["id"]
+
+    response = client.patch(
+        f"/contracts/{contract_id}/status",
+        json={"status": "SUBMITTED"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "SUBMITTED"
+
+
+def test_patch_contract_status_rejects_invalid_transition():
+    client = build_client(active_customer())
+    create_response = client.post("/contracts", json=valid_payload())
+    contract_id = create_response.json()["id"]
+
+    response = client.patch(
+        f"/contracts/{contract_id}/status",
+        json={"status": "ACTIVE"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_patch_contract_updates_draft_contract():
+    client = build_client(active_customer())
+    create_response = client.post("/contracts", json=valid_payload())
+    contract_id = create_response.json()["id"]
+
+    response = client.patch(
+        f"/contracts/{contract_id}",
+        json={
+            "valid_from": "2026-02-01",
+            "valid_to": "2026-11-30",
+            "services": [{"service_id": 1, "quantity": 3}],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["valid_from"] == "2026-02-01"
+    assert body["valid_to"] == "2026-11-30"
+    assert body["total_value"] == "3600000.00"
+    assert body["services"][0]["quantity"] == 3
+
+
+def test_delete_contract_deletes_draft_contract():
+    client = build_client(active_customer())
+    create_response = client.post("/contracts", json=valid_payload())
+    contract_id = create_response.json()["id"]
+
+    response = client.delete(f"/contracts/{contract_id}")
+    detail_response = client.get(f"/contracts/{contract_id}")
+
+    assert response.status_code == 204
+    assert detail_response.status_code == 404

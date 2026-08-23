@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -15,6 +16,16 @@ class ContractCreate(BaseModel):
     valid_to: date
     payment_terms: str = Field(..., min_length=1, max_length=255)
     services: list[ContractServiceCreate] = Field(..., min_length=1)
+
+
+class ContractStatusUpdate(BaseModel):
+    status: Literal["DRAFT", "SUBMITTED", "ACTIVE", "EXPIRED"]
+
+
+class ContractUpdate(BaseModel):
+    valid_from: date | None = None
+    valid_to: date | None = None
+    services: list[ContractServiceCreate] | None = Field(default=None, min_length=1)
 
 
 class ContractServiceRead(BaseModel):

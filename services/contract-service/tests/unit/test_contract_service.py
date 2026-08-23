@@ -11,7 +11,10 @@ from app.clients.price_client import ServicePriceInfo
 from app.db.base import Base
 from app.models.contract_model import Contract, ContractService as ContractServiceModel
 from app.schemas.contract_schema import ContractCreate
+from app.schemas.contract_schema import ContractStatusUpdate, ContractUpdate
 from app.services.contract_service import (
+    ContractNotDeletableError,
+    ContractNotEditableError,
     ContractNotFoundError,
     ContractService,
     ContractServiceUnavailableError,
@@ -19,6 +22,7 @@ from app.services.contract_service import (
     CustomerInactiveError,
     CustomerNotFoundError,
     DuplicateContractServiceError,
+    InvalidContractStatusTransitionError,
 )
 
 
@@ -259,6 +263,106 @@ def test_contract_views_use_unknown_customer_fallback(db_session):
     contracts = view_service.list_contracts(db_session)
 
     assert contracts[0].customer_name == "Unknown Customer"
+
+
+def test_update_contract_status_allows_expected_lifecycle_transitions(db_session):
+    service = make_service()
+    contract = service.create_contract(db_session, make_contract_create())
+
+    submitted = service.update_contract_status(
+        db_session, contract.id, ContractStatusUpdate(status="SUBMITTED")
+    )
+    active = service.update_contract_status(
+        db_session, contract.id, ContractStatusUpdate(status="ACTIVE")
+    )
+    expired = service.update_contract_status(
+        db_session, contract.id, ContractStatusUpdate(status="EXPIRED")
+    )
+
+    assert submitted.status == "SUBMITTED"
+    assert active.status == "ACTIVE"
+    assert expired.status == "EXPIRED"
+
+
+def test_update_contract_status_rejects_invalid_transition(db_session):
+    service = make_service()
+    contract = service.create_contract(db_session, make_contract_create())
+
+    with pytest.raises(InvalidContractStatusTransitionError):
+        service.update_contract_status(
+            db_session, contract.id, ContractStatusUpdate(status="ACTIVE")
+        )
+
+
+def test_update_contract_modifies_draft_dates_and_replaces_services(db_session):
+    service = make_service()
+    contract = service.create_contract(db_session, make_contract_create())
+
+    updated = service.update_contract(
+        db_session,
+        contract.id,
+        ContractUpdate(
+            valid_from=date(2026, 2, 1),
+            valid_to=date(2026, 11, 30),
+            services=[{"service_id": 2, "quantity": 4}],
+        ),
+    )
+
+    assert updated.valid_from == date(2026, 2, 1)
+    assert updated.valid_to == date(2026, 11, 30)
+    assert updated.total_value == Decimal("600000.00")
+    assert len(updated.services) == 1
+    assert updated.services[0].service_name == "Warehouse storage"
+    assert updated.services[0].quantity == 4
+    assert db_session.query(ContractServiceModel).count() == 1
+
+
+def test_update_contract_rejects_non_draft_contract(db_session):
+    service = make_service()
+    contract = service.create_contract(db_session, make_contract_create())
+    service.update_contract_status(
+        db_session, contract.id, ContractStatusUpdate(status="SUBMITTED")
+    )
+
+    with pytest.raises(ContractNotEditableError):
+        service.update_contract(
+            db_session,
+            contract.id,
+            ContractUpdate(valid_from=date(2026, 2, 1)),
+        )
+
+
+def test_update_contract_rejects_unknown_service_id(db_session):
+    service = make_service()
+    contract = service.create_contract(db_session, make_contract_create())
+
+    with pytest.raises(ContractServiceUnavailableError):
+        service.update_contract(
+            db_session,
+            contract.id,
+            ContractUpdate(services=[{"service_id": 999, "quantity": 1}]),
+        )
+
+
+def test_delete_contract_removes_draft_contract_and_services(db_session):
+    service = make_service()
+    contract = service.create_contract(db_session, make_contract_create())
+
+    service.delete_contract(db_session, contract.id)
+
+    assert db_session.query(Contract).count() == 0
+    assert db_session.query(ContractServiceModel).count() == 0
+
+
+def test_delete_contract_rejects_non_draft_contract(db_session):
+    service = make_service()
+    contract = service.create_contract(db_session, make_contract_create())
+    service.update_contract_status(
+        db_session, contract.id, ContractStatusUpdate(status="SUBMITTED")
+    )
+
+    with pytest.raises(ContractNotDeletableError):
+        service.delete_contract(db_session, contract.id)
 
 
 def test_fake_customer_client_only_accepts_sample_customer_ids():
