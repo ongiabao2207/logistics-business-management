@@ -4,12 +4,17 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class ContractServiceCreate(BaseModel):
+    service_id: int
+    quantity: int = Field(..., gt=0)
+
+
 class ContractCreate(BaseModel):
     customer_id: str = Field(..., min_length=1, max_length=36)
     valid_from: date
     valid_to: date
     payment_terms: str = Field(..., min_length=1, max_length=255)
-    service_ids: list[int] = Field(..., min_length=1)
+    services: list[ContractServiceCreate] = Field(..., min_length=1)
 
 
 class ContractServiceRead(BaseModel):
@@ -20,6 +25,29 @@ class ContractServiceRead(BaseModel):
     service_name: str
     service_unit: str
     service_price: Decimal
+    quantity: int
+
+
+class ContractSummaryRead(BaseModel):
+    contract_id: str
+    customer_name: str
+    valid_from: date
+    valid_to: date
+    total_value: Decimal
+    status: str
+
+
+class ContractDetailServiceRead(BaseModel):
+    id: int
+    service_name: str
+    service_unit: str
+    service_price: Decimal
+    quantity: int
+
+
+class ContractDetailRead(ContractSummaryRead):
+    updated_at: datetime
+    services: list[ContractDetailServiceRead]
 
 
 class ContractRead(BaseModel):

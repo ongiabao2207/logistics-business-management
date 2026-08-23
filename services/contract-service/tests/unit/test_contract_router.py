@@ -1,5 +1,9 @@
 from decimal import Decimal
 
+import pytest
+
+pytest.importorskip("httpx")
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -66,27 +70,38 @@ def build_client(customer: CustomerInfo | None):
 
 def valid_payload():
     return {
-        "customer_id": "customer-active",
+        "customer_id": "KH0001",
         "valid_from": "2026-01-01",
         "valid_to": "2026-12-31",
         "payment_terms": "Monthly payment within 15 days",
-        "service_ids": [1],
+        "services": [{"service_id": 1, "quantity": 2}],
     }
 
 
+def active_customer():
+    return CustomerInfo(
+        id="KH0001",
+        name="Samsung Electronics HCMC",
+        tax_code="0312345678",
+        customer_type="Logistics",
+        status="ACTIVE",
+    )
+
+
 def test_post_contracts_creates_draft_contract():
-    client = build_client(CustomerInfo(id="customer-active", active=True))
+    client = build_client(active_customer())
 
     response = client.post("/contracts", json=valid_payload())
 
     assert response.status_code == 201
     body = response.json()
     assert body["id"]
-    assert body["customer_id"] == "customer-active"
+    assert body["customer_id"] == "KH0001"
     assert body["status"] == "DRAFT"
     assert body["payment_terms"] == "Monthly payment within 15 days"
     assert body["services"][0]["service_id"] == 1
     assert body["services"][0]["service_name"] == "Container handling"
+    assert body["services"][0]["quantity"] == 2
 
 
 def test_post_contracts_returns_not_found_for_missing_customer():
@@ -99,7 +114,7 @@ def test_post_contracts_returns_not_found_for_missing_customer():
 
 
 def test_post_contracts_rejects_invalid_effective_period():
-    client = build_client(CustomerInfo(id="customer-active", active=True))
+    client = build_client(active_customer())
     payload = valid_payload()
     payload["valid_from"] = "2026-12-31"
     payload["valid_to"] = "2026-01-01"
@@ -111,11 +126,53 @@ def test_post_contracts_rejects_invalid_effective_period():
 
 
 def test_post_contracts_rejects_unknown_service_id():
-    client = build_client(CustomerInfo(id="customer-active", active=True))
+    client = build_client(active_customer())
     payload = valid_payload()
-    payload["service_ids"] = [999]
+    payload["services"] = [{"service_id": 999, "quantity": 1}]
 
     response = client.post("/contracts", json=payload)
 
     assert response.status_code == 422
     assert response.json()["detail"] == "service_id values are not available: 999"
+
+
+def test_get_contracts_returns_summaries():
+    client = build_client(active_customer())
+    client.post("/contracts", json=valid_payload())
+
+    response = client.get("/contracts")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["contract_id"]
+    assert body[0]["customer_name"] == "Samsung Electronics HCMC"
+    assert body[0]["total_value"] == "2400000.00"
+    assert body[0]["status"] == "DRAFT"
+
+
+def test_get_contract_detail_returns_services_without_service_id():
+    client = build_client(active_customer())
+    create_response = client.post("/contracts", json=valid_payload())
+    contract_id = create_response.json()["id"]
+
+    response = client.get(f"/contracts/{contract_id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["contract_id"] == contract_id
+    assert body["customer_name"] == "Samsung Electronics HCMC"
+    assert body["total_value"] == "2400000.00"
+    assert body["updated_at"]
+    assert body["services"][0]["service_name"] == "Container handling"
+    assert body["services"][0]["quantity"] == 2
+    assert "service_id" not in body["services"][0]
+
+
+def test_get_contract_detail_returns_not_found_for_unknown_contract():
+    client = build_client(active_customer())
+
+    response = client.get("/contracts/missing-contract")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "contract does not exist"

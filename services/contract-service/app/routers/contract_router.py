@@ -4,8 +4,14 @@ from sqlalchemy.orm import Session
 from app.clients.customer_client import CustomerClient, get_customer_client
 from app.clients.price_client import PriceClient, get_price_client
 from app.db.session import get_db
-from app.schemas.contract_schema import ContractCreate, ContractRead
+from app.schemas.contract_schema import (
+    ContractCreate,
+    ContractDetailRead,
+    ContractRead,
+    ContractSummaryRead,
+)
 from app.services.contract_service import (
+    ContractNotFoundError,
     ContractService,
     ContractValidationError,
     CustomerInactiveError,
@@ -20,6 +26,14 @@ def get_contract_service(
     price_client: PriceClient = Depends(get_price_client),
 ) -> ContractService:
     return ContractService(customer_client=customer_client, price_client=price_client)
+
+
+@router.get("", response_model=list[ContractSummaryRead])
+def list_contracts(
+    db: Session = Depends(get_db),
+    service: ContractService = Depends(get_contract_service),
+):
+    return service.list_contracts(db)
 
 
 @router.post(
@@ -40,6 +54,18 @@ def create_contract(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         )
+
+
+@router.get("/{contract_id}", response_model=ContractDetailRead)
+def get_contract_detail(
+    contract_id: str,
+    db: Session = Depends(get_db),
+    service: ContractService = Depends(get_contract_service),
+):
+    try:
+        return service.get_contract_detail(db, contract_id)
+    except ContractNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except ContractValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)

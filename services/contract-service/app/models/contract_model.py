@@ -55,6 +55,7 @@ class ContractService(Base):
     service_name: Mapped[str] = mapped_column(String(255), nullable=False)
     service_unit: Mapped[str] = mapped_column(String(100), nullable=False)
     service_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
 
     contract: Mapped[Contract] = relationship(back_populates="services")
 
