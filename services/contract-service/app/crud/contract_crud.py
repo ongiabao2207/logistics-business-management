@@ -1,4 +1,6 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.clients.price_client import ServicePriceInfo
 from app.models.contract_model import Contract, ContractService as ContractServiceModel
@@ -33,6 +35,18 @@ class ContractCRUD:
         db.commit()
         db.refresh(contract)
         return contract
+
+    def list_all(self, db: Session) -> list[Contract]:
+        statement = select(Contract).options(selectinload(Contract.services))
+        return list(db.scalars(statement).all())
+
+    def get_by_id(self, db: Session, contract_id: str) -> Contract | None:
+        statement = (
+            select(Contract)
+            .where(Contract.id == contract_id)
+            .options(selectinload(Contract.services))
+        )
+        return db.scalar(statement)
 
 
 contract_crud = ContractCRUD()

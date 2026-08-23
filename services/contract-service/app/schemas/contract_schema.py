@@ -22,6 +22,27 @@ class ContractServiceRead(BaseModel):
     service_price: Decimal
 
 
+class ContractSummaryRead(BaseModel):
+    contract_id: str
+    customer_name: str
+    valid_from: date
+    valid_to: date
+    total_value: Decimal
+    status: str
+
+
+class ContractDetailServiceRead(BaseModel):
+    id: int
+    service_name: str
+    service_unit: str
+    service_price: Decimal
+
+
+class ContractDetailRead(ContractSummaryRead):
+    updated_at: datetime
+    services: list[ContractDetailServiceRead]
+
+
 class ContractRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
