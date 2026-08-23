@@ -50,6 +50,21 @@ python -m uvicorn app.main:app --reload --port 8001
 
 - `GET /health`: Kiểm tra Price Service có hoạt động không.
 
+## Vòng đời bảng giá
+
+```text
+DRAFT → SUBMITTED → APPROVED → ACTIVE → EXPIRED
+```
+
+- `DRAFT`: Bảng giá mới tạo, được phép sửa hoặc xóa.
+- `SUBMITTED`: Đã gửi đi duyệt.
+- `APPROVED`: Đã được phê duyệt.
+- `ACTIVE`: Bảng giá đang được áp dụng.
+- `EXPIRED`: Bảng giá đã hết hiệu lực.
+
+API hiện tại xử lý bước `DRAFT → SUBMITTED`. Các bước phê duyệt và kích hoạt
+sẽ do quy trình phê duyệt xử lý.
+
 ## Chạy test
 
 ```powershell
