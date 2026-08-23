@@ -28,6 +28,19 @@ python -m uvicorn app.main:app --reload --port 8001
 - Swagger: `http://127.0.0.1:8001/docs`
 - Health check: `http://127.0.0.1:8001/health`
 
+## Chạy bằng Docker
+
+```powershell
+docker compose up --build
+```
+
+Docker chạy Price Service tại `http://127.0.0.1:8001` và PostgreSQL tại cổng
+`5433`. Dừng các container bằng:
+
+```powershell
+docker compose down
+```
+
 ## API
 
 ### Service
