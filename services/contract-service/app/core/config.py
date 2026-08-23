@@ -15,7 +15,8 @@ def get_settings() -> Settings:
     return Settings(
         app_name=os.getenv("CONTRACT_SERVICE_APP_NAME", "Contract Service"),
         database_url=os.getenv(
-            "CONTRACT_SERVICE_DATABASE_URL", "sqlite:///./contract_service.db"
+            "CONTRACT_SERVICE_DATABASE_URL",
+            "postgresql+psycopg://contract_user:contract_password@localhost:5432/contract_db",
         ),
         customer_client_mode=os.getenv("CONTRACT_SERVICE_CUSTOMER_CLIENT_MODE", "fake"),
     )

@@ -1,0 +1,36 @@
+services:
+  contract-db:
+    image: postgres:16
+    container_name: contract-db
+    environment:
+      POSTGRES_DB: contract_db
+      POSTGRES_USER: contract_user
+      POSTGRES_PASSWORD: contract_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - contract-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U contract_user -d contract_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  contract-service:
+    build:
+      context: ../../services/contract-service
+    container_name: contract-service
+    environment:
+      CONTRACT_SERVICE_DATABASE_URL: postgresql+psycopg://contract_user:contract_password@contract-db:5432/contract_db
+      CONTRACT_SERVICE_CUSTOMER_CLIENT_MODE: fake
+    ports:
+      - "8001:8000"
+    depends_on:
+      contract-db:
+        condition: service_healthy
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+volumes:
+  contract-db-data:
