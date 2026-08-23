@@ -4,7 +4,7 @@ from sqlalchemy.orm import selectinload
 
 from app.clients.price_client import ServicePriceInfo
 from app.models.contract_model import Contract, ContractService as ContractServiceModel
-from app.schemas.contract_schema import ContractCreate
+from app.schemas.contract_schema import ContractCreate, ContractServiceCreate
 
 
 class ContractCRUD:
@@ -12,7 +12,7 @@ class ContractCRUD:
         self,
         db: Session,
         contract_in: ContractCreate,
-        service_prices: list[ServicePriceInfo],
+        service_prices: list[tuple[ContractServiceCreate, ServicePriceInfo]],
     ) -> Contract:
         contract = Contract(
             customer_id=contract_in.customer_id,
@@ -27,8 +27,9 @@ class ContractCRUD:
                 service_name=service_price.service_name,
                 service_unit=service_price.service_unit,
                 service_price=service_price.service_price,
+                quantity=service_in.quantity,
             )
-            for service_price in service_prices
+            for service_in, service_price in service_prices
         ]
 
         db.add(contract)

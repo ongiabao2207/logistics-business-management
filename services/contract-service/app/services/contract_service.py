@@ -10,6 +10,7 @@ from app.schemas.contract_schema import (
     ContractCreate,
     ContractDetailRead,
     ContractDetailServiceRead,
+    ContractServiceCreate,
     ContractSummaryRead,
 )
 
@@ -52,7 +53,7 @@ class ContractService:
     def create_contract(self, db: Session, contract_in: ContractCreate) -> Contract:
         self._validate_effective_period(contract_in)
         self._validate_customer(contract_in.customer_id)
-        service_prices = self._resolve_service_prices(contract_in.service_ids)
+        service_prices = self._resolve_service_prices(contract_in.services)
         return self.crud.create(db, contract_in, service_prices)
 
     def list_contracts(self, db: Session) -> list[ContractSummaryRead]:
@@ -74,6 +75,7 @@ class ContractService:
                     service_name=service.service_name,
                     service_unit=service.service_unit,
                     service_price=service.service_price,
+                    quantity=service.quantity,
                 )
                 for service in contract.services
             ],
@@ -92,7 +94,10 @@ class ContractService:
         if not customer.active:
             raise CustomerInactiveError("customer is inactive")
 
-    def _resolve_service_prices(self, service_ids: list[int]) -> list[ServicePriceInfo]:
+    def _resolve_service_prices(
+        self, services: list[ContractServiceCreate]
+    ) -> list[tuple[ContractServiceCreate, ServicePriceInfo]]:
+        service_ids = [service.service_id for service in services]
         duplicate_service_ids = {
             service_id for service_id in service_ids if service_ids.count(service_id) > 1
         }
@@ -104,15 +109,15 @@ class ContractService:
                 f"duplicate service_id values are not allowed: {formatted_ids}"
             )
 
-        service_prices: list[ServicePriceInfo] = []
+        service_prices: list[tuple[ContractServiceCreate, ServicePriceInfo]] = []
         missing_service_ids: list[int] = []
 
-        for service_id in service_ids:
-            service_price = self.price_client.get_service_price(service_id)
+        for service in services:
+            service_price = self.price_client.get_service_price(service.service_id)
             if service_price is None:
-                missing_service_ids.append(service_id)
+                missing_service_ids.append(service.service_id)
                 continue
-            service_prices.append(service_price)
+            service_prices.append((service, service_price))
 
         if missing_service_ids:
             formatted_ids = ", ".join(
@@ -131,7 +136,10 @@ class ContractService:
             valid_from=contract.valid_from,
             valid_to=contract.valid_to,
             total_value=sum(
-                (service.service_price for service in contract.services),
+                (
+                    service.quantity * service.service_price
+                    for service in contract.services
+                ),
                 Decimal("0.00"),
             ),
             status=contract.status,
