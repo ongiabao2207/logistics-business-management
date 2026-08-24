@@ -1,4 +1,3 @@
-import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -11,7 +10,7 @@ from app.db.base import Base
 class PriceList(Base):
     __tablename__ = "price_list"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(String(20), primary_key=True)
     description: Mapped[str] = mapped_column(String(500), nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False)
     effective_from: Mapped[date] = mapped_column(Date, nullable=False)
@@ -48,7 +47,7 @@ class PriceListDetail(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     price_list_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("price_list.id"), nullable=False
+        String(20), ForeignKey("price_list.id"), nullable=False
     )
     service_id: Mapped[int] = mapped_column(Integer, ForeignKey("service.id"), nullable=False)
     unit_price: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)

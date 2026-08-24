@@ -1,3 +1,6 @@
+from datetime import datetime, timezone
+
+
 def create_price_list(client, service_id, version=1):
     response = client.post(
         "/api/v1/price-lists",
@@ -10,7 +13,10 @@ def create_price_list(client, service_id, version=1):
         },
     )
     assert response.status_code == 201
-    return response.json()
+    body = response.json()
+    year = datetime.now(timezone.utc).year
+    assert body["id"].startswith(f"BG-{year}-")
+    return body
 
 
 def test_health(client):

@@ -1,6 +1,6 @@
-from datetime import date
+from datetime import date, datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.price_model import PriceList, PriceListDetail, Service
@@ -32,6 +32,7 @@ def find_service_by_name(db: Session, name: str, exclude_id: int | None = None) 
 
 def create_price_list(db: Session, payload: PriceListCreate) -> PriceList:
     entity = PriceList(
+        id=next_price_list_id(db),
         description=payload.description,
         version=payload.version,
         effective_from=payload.effective_from,
@@ -43,6 +44,26 @@ def create_price_list(db: Session, payload: PriceListCreate) -> PriceList:
     db.flush()
     db.refresh(entity)
     return entity
+
+
+def next_price_list_id(db: Session) -> str:
+    year = datetime.now(timezone.utc).year
+    prefix = f"BG-{year}-"
+
+    if db.get_bind().dialect.name == "postgresql":
+        db.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext(:lock_key))"),
+            {"lock_key": f"price-list-id-{year}"},
+        )
+
+    existing_ids = db.scalars(select(PriceList.id).where(PriceList.id.like(f"{prefix}%")))
+    sequences = []
+    for price_list_id in existing_ids:
+        suffix = price_list_id.removeprefix(prefix)
+        if suffix.isdigit():
+            sequences.append(int(suffix))
+
+    return f"{prefix}{max(sequences, default=0) + 1:03d}"
 
 
 def list_price_lists(db: Session, offset: int, limit: int) -> list[PriceList]:

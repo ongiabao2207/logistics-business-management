@@ -3,6 +3,9 @@
 Price Service quản lý dịch vụ, bảng giá và cung cấp giá đang áp dụng cho các
 service khác.
 
+Mã bảng giá do hệ thống tự sinh theo dạng `BG-{năm}-{số thứ tự}`, ví dụ
+`BG-2026-001`, `BG-2026-002`. Số thứ tự tăng riêng trong từng năm.
+
 ## Cài đặt
 
 ```powershell
