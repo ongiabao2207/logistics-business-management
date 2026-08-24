@@ -1,5 +1,6 @@
 import hashlib
 import json
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
@@ -18,6 +19,8 @@ from app.schemas.contract_schema import (
     ContractDetailServiceRead,
     ContractServiceCreate,
     ContractSummaryRead,
+    ContractStatusUpdate,
+    ContractUpdate,
 )
 
 
@@ -53,8 +56,26 @@ class ContractNumberLimitError(ContractValidationError):
     pass
 
 
+class InvalidContractStatusTransitionError(ContractValidationError):
+    pass
+
+
+class ContractNotEditableError(ContractValidationError):
+    pass
+
+
+class ContractNotDeletableError(ContractValidationError):
+    pass
+
+
 class ContractService:
     _create_contract_endpoint = "POST /contracts"
+    _allowed_status_transitions = {
+        "DRAFT": {"SUBMITTED"},
+        "SUBMITTED": {"ACTIVE"},
+        "ACTIVE": {"EXPIRED"},
+        "EXPIRED": set(),
+    }
 
     def __init__(
         self,
@@ -105,29 +126,68 @@ class ContractService:
         return [self._to_summary(contract) for contract in contracts]
 
     def get_contract_detail(self, db: Session, contract_id: str) -> ContractDetailRead:
-        contract = self.crud.get_by_id(db, contract_id)
-        if contract is None:
-            raise ContractNotFoundError("contract does not exist")
+        contract = self._get_contract_or_raise(db, contract_id)
+        return self._to_detail(contract)
 
-        summary = self._to_summary(contract)
-        return ContractDetailRead(
-            **summary.model_dump(),
-            updated_at=contract.updated_at,
-            services=[
-                ContractDetailServiceRead(
-                    id=service.id,
-                    service_name=service.service_name,
-                    service_unit=service.service_unit,
-                    service_price=service.service_price,
-                    quantity=service.quantity,
-                )
-                for service in contract.services
-            ],
+    def update_contract_status(
+        self,
+        db: Session,
+        contract_id: str,
+        status_in: ContractStatusUpdate,
+    ) -> ContractDetailRead:
+        contract = self._get_contract_or_raise(db, contract_id)
+        self._validate_status_transition(contract.status, status_in.status)
+        updated_contract = self.crud.update_status(db, contract, status_in.status)
+        return self._to_detail(updated_contract)
+
+    def update_contract(
+        self,
+        db: Session,
+        contract_id: str,
+        contract_in: ContractUpdate,
+    ) -> ContractDetailRead:
+        contract = self._get_contract_or_raise(db, contract_id)
+        if contract.status != "DRAFT":
+            raise ContractNotEditableError("only DRAFT contracts can be modified")
+
+        valid_from = contract_in.valid_from or contract.valid_from
+        valid_to = contract_in.valid_to or contract.valid_to
+        self._validate_update_effective_dates(valid_from, valid_to)
+
+        service_prices = None
+        if contract_in.services is not None:
+            service_prices = self._resolve_service_prices(contract_in.services)
+
+        updated_contract = self.crud.update_contract(
+            db,
+            contract,
+            contract_in,
+            service_prices,
         )
+        return self._to_detail(updated_contract)
+
+    def delete_contract(self, db: Session, contract_id: str) -> None:
+        contract = self._get_contract_or_raise(db, contract_id)
+        if contract.status != "DRAFT":
+            raise ContractNotDeletableError("only DRAFT contracts can be deleted")
+
+        self.crud.delete(db, contract)
 
     def _validate_effective_period(self, contract_in: ContractCreate) -> None:
-        if contract_in.valid_from > contract_in.valid_to:
+        self._validate_effective_dates(contract_in.valid_from, contract_in.valid_to)
+
+    def _validate_effective_dates(self, valid_from: date, valid_to: date) -> None:
+        if valid_from > valid_to:
             raise ContractValidationError("valid_from must not be later than valid_to")
+
+    def _validate_update_effective_dates(
+        self, valid_from: date, valid_to: date
+    ) -> None:
+        if valid_from <= date.today():
+            raise ContractValidationError("valid_from must be greater than current date")
+
+        if valid_to <= valid_from:
+            raise ContractValidationError("valid_to must be greater than valid_from")
 
     def _hash_create_request(self, contract_in: ContractCreate) -> str:
         payload = contract_in.model_dump(mode="json")
@@ -178,6 +238,19 @@ class ContractService:
 
         return service_prices
 
+    def _get_contract_or_raise(self, db: Session, contract_id: str) -> Contract:
+        contract = self.crud.get_by_id(db, contract_id)
+        if contract is None:
+            raise ContractNotFoundError("contract does not exist")
+        return contract
+
+    def _validate_status_transition(self, current_status: str, target_status: str) -> None:
+        allowed_statuses = self._allowed_status_transitions.get(current_status, set())
+        if target_status not in allowed_statuses:
+            raise InvalidContractStatusTransitionError(
+                f"cannot transition contract from {current_status} to {target_status}"
+            )
+
     def _to_summary(self, contract: Contract) -> ContractSummaryRead:
         return ContractSummaryRead(
             contract_id=contract.id,
@@ -199,3 +272,21 @@ class ContractService:
         if customer is None:
             return "Unknown Customer"
         return customer.name
+
+    def _to_detail(self, contract: Contract) -> ContractDetailRead:
+        summary = self._to_summary(contract)
+        return ContractDetailRead(
+            **summary.model_dump(),
+            payment_terms=contract.payment_terms,
+            updated_at=contract.updated_at,
+            services=[
+                ContractDetailServiceRead(
+                    id=service.id,
+                    service_name=service.service_name,
+                    service_unit=service.service_unit,
+                    service_price=service.service_price,
+                    quantity=service.quantity,
+                )
+                for service in contract.services
+            ],
+        )

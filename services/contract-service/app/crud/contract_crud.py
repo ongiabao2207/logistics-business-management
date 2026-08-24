@@ -2,8 +2,7 @@ from collections.abc import Callable
 from datetime import date
 
 from sqlalchemy import select, text
-from sqlalchemy.orm import selectinload
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.clients.price_client import ServicePriceInfo
 from app.models.contract_model import (
@@ -11,8 +10,13 @@ from app.models.contract_model import (
     ContractService as ContractServiceModel,
     ContractYearSequence,
     IdempotencyRecord,
+    utc_now,
 )
-from app.schemas.contract_schema import ContractCreate, ContractServiceCreate
+from app.schemas.contract_schema import (
+    ContractCreate,
+    ContractServiceCreate,
+    ContractUpdate,
+)
 
 
 class ContractNumberLimitReachedError(ValueError):
@@ -51,6 +55,7 @@ class ContractCRUD:
             for service_in, service_price in service_prices
         ]
 
+        db.add(contract)
         db.add(
             IdempotencyRecord(
                 endpoint="POST /contracts",
@@ -60,7 +65,6 @@ class ContractCRUD:
                 resource_id=contract_id,
             )
         )
-        db.add(contract)
         db.commit()
         db.refresh(contract)
         return contract
@@ -85,6 +89,52 @@ class ContractCRUD:
             .options(selectinload(Contract.services))
         )
         return db.scalar(statement)
+
+    def update_status(self, db: Session, contract: Contract, status: str) -> Contract:
+        contract.status = status
+        contract.updated_at = utc_now()
+        db.add(contract)
+        db.commit()
+        db.refresh(contract)
+        return contract
+
+    def update_contract(
+        self,
+        db: Session,
+        contract: Contract,
+        contract_in: ContractUpdate,
+        service_prices: list[tuple[ContractServiceCreate, ServicePriceInfo]] | None,
+    ) -> Contract:
+        if contract_in.valid_from is not None:
+            contract.valid_from = contract_in.valid_from
+
+        if contract_in.valid_to is not None:
+            contract.valid_to = contract_in.valid_to
+
+        if contract_in.payment_terms is not None:
+            contract.payment_terms = contract_in.payment_terms
+
+        if service_prices is not None:
+            contract.services = [
+                ContractServiceModel(
+                    service_id=service_price.service_id,
+                    service_name=service_price.service_name,
+                    service_unit=service_price.service_unit,
+                    service_price=service_price.service_price,
+                    quantity=service_in.quantity,
+                )
+                for service_in, service_price in service_prices
+            ]
+
+        contract.updated_at = utc_now()
+        db.add(contract)
+        db.commit()
+        db.refresh(contract)
+        return contract
+
+    def delete(self, db: Session, contract: Contract) -> None:
+        db.delete(contract)
+        db.commit()
 
     def _next_contract_id(self, db: Session) -> str:
         year = self.current_year()

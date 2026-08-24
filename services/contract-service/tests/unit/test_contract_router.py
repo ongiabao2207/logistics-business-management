@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
@@ -92,12 +93,14 @@ def idempotency_headers(key: str = "create-contract-key"):
     return {"Idempotency-Key": key}
 
 
+def create_contract(client: TestClient, key: str = "create-contract-key"):
+    return client.post("/contracts", json=valid_payload(), headers=idempotency_headers(key))
+
+
 def test_post_contracts_creates_draft_contract():
     client = build_client(active_customer())
 
-    response = client.post(
-        "/contracts", json=valid_payload(), headers=idempotency_headers()
-    )
+    response = create_contract(client)
 
     assert response.status_code == 201
     body = response.json()
@@ -113,9 +116,7 @@ def test_post_contracts_creates_draft_contract():
 def test_post_contracts_returns_not_found_for_missing_customer():
     client = build_client(None)
 
-    response = client.post(
-        "/contracts", json=valid_payload(), headers=idempotency_headers()
-    )
+    response = create_contract(client)
 
     assert response.status_code == 404
     assert response.json()["detail"] == "customer does not exist"
@@ -146,7 +147,7 @@ def test_post_contracts_rejects_unknown_service_id():
 
 def test_get_contracts_returns_summaries():
     client = build_client(active_customer())
-    client.post("/contracts", json=valid_payload(), headers=idempotency_headers())
+    create_contract(client)
 
     response = client.get("/contracts")
 
@@ -161,9 +162,7 @@ def test_get_contracts_returns_summaries():
 
 def test_get_contract_detail_returns_services_without_service_id():
     client = build_client(active_customer())
-    create_response = client.post(
-        "/contracts", json=valid_payload(), headers=idempotency_headers()
-    )
+    create_response = create_contract(client)
     contract_id = create_response.json()["id"]
 
     response = client.get(f"/contracts/{contract_id}")
@@ -172,6 +171,7 @@ def test_get_contract_detail_returns_services_without_service_id():
     body = response.json()
     assert body["contract_id"] == contract_id
     assert body["customer_name"] == "Samsung Electronics HCMC"
+    assert body["payment_terms"] == "Monthly payment within 15 days"
     assert body["total_value"] == "2400000.00"
     assert body["updated_at"]
     assert body["services"][0]["service_name"] == "Container handling"
@@ -200,12 +200,8 @@ def test_post_contracts_returns_bad_request_when_idempotency_key_is_missing():
 def test_post_contracts_returns_same_contract_for_idempotent_retry():
     client = build_client(active_customer())
 
-    first_response = client.post(
-        "/contracts", json=valid_payload(), headers=idempotency_headers("same-key")
-    )
-    retry_response = client.post(
-        "/contracts", json=valid_payload(), headers=idempotency_headers("same-key")
-    )
+    first_response = create_contract(client, "same-key")
+    retry_response = create_contract(client, "same-key")
 
     assert retry_response.status_code == 201
     assert retry_response.json()["id"] == first_response.json()["id"]
@@ -216,9 +212,7 @@ def test_post_contracts_returns_conflict_for_reused_key_with_different_payload()
     changed_payload = valid_payload()
     changed_payload["payment_terms"] = "Payment within 30 days"
 
-    client.post(
-        "/contracts", json=valid_payload(), headers=idempotency_headers("same-key")
-    )
+    create_contract(client, "same-key")
     response = client.post(
         "/contracts", json=changed_payload, headers=idempotency_headers("same-key")
     )
@@ -228,3 +222,68 @@ def test_post_contracts_returns_conflict_for_reused_key_with_different_payload()
         response.json()["detail"]
         == "idempotency key was already used with a different request"
     )
+
+
+def test_patch_contract_status_updates_status():
+    client = build_client(active_customer())
+    create_response = create_contract(client)
+    contract_id = create_response.json()["id"]
+
+    response = client.patch(
+        f"/contracts/{contract_id}/status",
+        json={"status": "SUBMITTED"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "SUBMITTED"
+
+
+def test_patch_contract_status_rejects_invalid_transition():
+    client = build_client(active_customer())
+    create_response = create_contract(client)
+    contract_id = create_response.json()["id"]
+
+    response = client.patch(
+        f"/contracts/{contract_id}/status",
+        json={"status": "ACTIVE"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_patch_contract_updates_draft_contract():
+    client = build_client(active_customer())
+    create_response = create_contract(client)
+    contract_id = create_response.json()["id"]
+    new_valid_from = date.today() + timedelta(days=30)
+    new_valid_to = date.today() + timedelta(days=300)
+
+    response = client.patch(
+        f"/contracts/{contract_id}",
+        json={
+            "valid_from": new_valid_from.isoformat(),
+            "valid_to": new_valid_to.isoformat(),
+            "payment_terms": "Payment within 30 days",
+            "services": [{"service_id": 1, "quantity": 3}],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["valid_from"] == new_valid_from.isoformat()
+    assert body["valid_to"] == new_valid_to.isoformat()
+    assert body["payment_terms"] == "Payment within 30 days"
+    assert body["total_value"] == "3600000.00"
+    assert body["services"][0]["quantity"] == 3
+
+
+def test_delete_contract_deletes_draft_contract():
+    client = build_client(active_customer())
+    create_response = create_contract(client)
+    contract_id = create_response.json()["id"]
+
+    response = client.delete(f"/contracts/{contract_id}")
+    detail_response = client.get(f"/contracts/{contract_id}")
+
+    assert response.status_code == 204
+    assert detail_response.status_code == 404

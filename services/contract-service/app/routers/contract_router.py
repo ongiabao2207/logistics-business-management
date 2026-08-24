@@ -9,15 +9,20 @@ from app.schemas.contract_schema import (
     ContractDetailRead,
     ContractRead,
     ContractSummaryRead,
+    ContractStatusUpdate,
+    ContractUpdate,
 )
 from app.services.contract_service import (
-    ContractNumberLimitError,
+    ContractNotDeletableError,
+    ContractNotEditableError,
     ContractNotFoundError,
+    ContractNumberLimitError,
     ContractService,
     ContractValidationError,
     CustomerInactiveError,
     CustomerNotFoundError,
     IdempotencyConflictError,
+    InvalidContractStatusTransitionError,
 )
 
 router = APIRouter(prefix="/contracts", tags=["contracts"])
@@ -75,6 +80,44 @@ def create_contract(
         )
 
 
+@router.patch("/{contract_id}/status", response_model=ContractDetailRead)
+def update_contract_status(
+    contract_id: str,
+    status_in: ContractStatusUpdate,
+    db: Session = Depends(get_db),
+    service: ContractService = Depends(get_contract_service),
+):
+    try:
+        return service.update_contract_status(db, contract_id, status_in)
+    except ContractNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except InvalidContractStatusTransitionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
+
+
+@router.patch("/{contract_id}", response_model=ContractDetailRead)
+def update_contract(
+    contract_id: str,
+    contract_in: ContractUpdate,
+    db: Session = Depends(get_db),
+    service: ContractService = Depends(get_contract_service),
+):
+    try:
+        return service.update_contract(db, contract_id, contract_in)
+    except ContractNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except ContractNotEditableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
+    except ContractValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
+
+
 @router.get("/{contract_id}", response_model=ContractDetailRead)
 def get_contract_detail(
     contract_id: str,
@@ -86,6 +129,22 @@ def get_contract_detail(
     except ContractNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except ContractValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
+
+
+@router.delete("/{contract_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_contract(
+    contract_id: str,
+    db: Session = Depends(get_db),
+    service: ContractService = Depends(get_contract_service),
+):
+    try:
+        service.delete_contract(db, contract_id)
+    except ContractNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except ContractNotDeletableError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         )
