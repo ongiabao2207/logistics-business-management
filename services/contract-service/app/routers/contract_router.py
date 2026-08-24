@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.clients.customer_client import CustomerClient, get_customer_client
@@ -16,10 +16,12 @@ from app.services.contract_service import (
     ContractNotDeletableError,
     ContractNotEditableError,
     ContractNotFoundError,
+    ContractNumberLimitError,
     ContractService,
     ContractValidationError,
     CustomerInactiveError,
     CustomerNotFoundError,
+    IdempotencyConflictError,
     InvalidContractStatusTransitionError,
 )
 
@@ -48,14 +50,27 @@ def list_contracts(
 )
 def create_contract(
     contract_in: ContractCreate,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     db: Session = Depends(get_db),
     service: ContractService = Depends(get_contract_service),
 ):
+    if idempotency_key is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Idempotency-Key header is required",
+        )
+
     try:
-        return service.create_contract(db, contract_in)
+        return service.create_contract(db, contract_in, idempotency_key)
     except CustomerNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except CustomerInactiveError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
+    except IdempotencyConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    except ContractNumberLimitError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         )

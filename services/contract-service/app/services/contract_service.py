@@ -1,3 +1,5 @@
+import hashlib
+import json
 from datetime import date
 from decimal import Decimal
 
@@ -5,7 +7,11 @@ from sqlalchemy.orm import Session
 
 from app.clients.customer_client import CustomerClient
 from app.clients.price_client import PriceClient, ServicePriceInfo
-from app.crud.contract_crud import ContractCRUD, contract_crud
+from app.crud.contract_crud import (
+    ContractCRUD,
+    ContractNumberLimitReachedError,
+    contract_crud,
+)
 from app.models.contract_model import Contract
 from app.schemas.contract_schema import (
     ContractCreate,
@@ -42,6 +48,14 @@ class ContractNotFoundError(ContractValidationError):
     pass
 
 
+class IdempotencyConflictError(ContractValidationError):
+    pass
+
+
+class ContractNumberLimitError(ContractValidationError):
+    pass
+
+
 class InvalidContractStatusTransitionError(ContractValidationError):
     pass
 
@@ -55,6 +69,7 @@ class ContractNotDeletableError(ContractValidationError):
 
 
 class ContractService:
+    _create_contract_endpoint = "POST /contracts"
     _allowed_status_transitions = {
         "DRAFT": {"SUBMITTED"},
         "SUBMITTED": {"ACTIVE"},
@@ -72,21 +87,46 @@ class ContractService:
         self.price_client = price_client
         self.crud = crud
 
-    def create_contract(self, db: Session, contract_in: ContractCreate) -> Contract:
+    def create_contract(
+        self, db: Session, contract_in: ContractCreate, idempotency_key: str
+    ) -> Contract:
+        request_hash = self._hash_create_request(contract_in)
+        existing_record = self.crud.get_idempotency_record(
+            db, self._create_contract_endpoint, idempotency_key
+        )
+        if existing_record is not None:
+            if existing_record.request_hash != request_hash:
+                raise IdempotencyConflictError(
+                    "idempotency key was already used with a different request"
+                )
+
+            existing_contract = self.crud.get_by_id(db, existing_record.resource_id)
+            if existing_contract is None:
+                raise ContractValidationError(
+                    "idempotency record points to a missing contract"
+                )
+            return existing_contract
+
         self._validate_effective_period(contract_in)
         self._validate_customer(contract_in.customer_id)
         service_prices = self._resolve_service_prices(contract_in.services)
-        return self.crud.create(db, contract_in, service_prices)
+        try:
+            return self.crud.create(
+                db,
+                contract_in,
+                service_prices,
+                idempotency_key,
+                request_hash,
+            )
+        except ContractNumberLimitReachedError as exc:
+            raise ContractNumberLimitError(str(exc)) from exc
 
     def list_contracts(self, db: Session) -> list[ContractSummaryRead]:
         contracts = self.crud.list_all(db)
         return [self._to_summary(contract) for contract in contracts]
 
     def get_contract_detail(self, db: Session, contract_id: str) -> ContractDetailRead:
-        contract = self.crud.get_by_id(db, contract_id)
-        if contract is None:
-            raise ContractNotFoundError("contract does not exist")
-
+        contract = self._get_contract_or_raise(db, contract_id)
         return self._to_detail(contract)
 
     def update_contract_status(
@@ -148,6 +188,11 @@ class ContractService:
 
         if valid_to <= valid_from:
             raise ContractValidationError("valid_to must be greater than valid_from")
+
+    def _hash_create_request(self, contract_in: ContractCreate) -> str:
+        payload = contract_in.model_dump(mode="json")
+        canonical_payload = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(canonical_payload.encode("utf-8")).hexdigest()
 
     def _validate_customer(self, customer_id: str) -> None:
         customer = self.customer_client.get_customer(customer_id)

@@ -8,20 +8,30 @@ from sqlalchemy.pool import StaticPool
 
 from app.clients.customer_client import CustomerClient, CustomerInfo, FakeCustomerClient
 from app.clients.price_client import ServicePriceInfo
+from app.crud.contract_crud import ContractCRUD
 from app.db.base import Base
-from app.models.contract_model import Contract, ContractService as ContractServiceModel
-from app.schemas.contract_schema import ContractCreate
-from app.schemas.contract_schema import ContractStatusUpdate, ContractUpdate
+from app.models.contract_model import (
+    Contract,
+    ContractService as ContractServiceModel,
+    ContractYearSequence,
+)
+from app.schemas.contract_schema import (
+    ContractCreate,
+    ContractStatusUpdate,
+    ContractUpdate,
+)
 from app.services.contract_service import (
     ContractNotDeletableError,
     ContractNotEditableError,
     ContractNotFoundError,
+    ContractNumberLimitError,
     ContractService,
     ContractServiceUnavailableError,
     ContractValidationError,
     CustomerInactiveError,
     CustomerNotFoundError,
     DuplicateContractServiceError,
+    IdempotencyConflictError,
     InvalidContractStatusTransitionError,
 )
 
@@ -119,6 +129,14 @@ def make_service() -> ContractService:
     )
 
 
+def make_service_for_year(year: int) -> ContractService:
+    return ContractService(
+        customer_client=StubCustomerClient(customer_info()),
+        price_client=price_client(),
+        crud=ContractCRUD(current_year=lambda: year),
+    )
+
+
 def make_contract_service(customer_client: CustomerClient) -> ContractService:
     return ContractService(
         customer_client=customer_client,
@@ -137,10 +155,12 @@ def test_create_contract_saves_draft_with_service_snapshots(db_session):
     service = make_service()
 
     contract = service.create_contract(
-        db_session, make_contract_create(services=multi_service_payload())
+        db_session,
+        make_contract_create(services=multi_service_payload()),
+        "create-contract-1",
     )
 
-    assert contract.id
+    assert contract.id == f"HD-{date.today().year}-001"
     assert contract.status == "DRAFT"
     assert contract.customer_id == "KH0001"
     assert db_session.query(Contract).count() == 1
@@ -158,7 +178,7 @@ def test_create_contract_rejects_missing_customer(db_session):
     )
 
     with pytest.raises(CustomerNotFoundError):
-        service.create_contract(db_session, make_contract_create())
+        service.create_contract(db_session, make_contract_create(), "missing-customer")
 
 
 def test_create_contract_rejects_inactive_customer(db_session):
@@ -170,7 +190,7 @@ def test_create_contract_rejects_inactive_customer(db_session):
     )
 
     with pytest.raises(CustomerInactiveError):
-        service.create_contract(db_session, make_contract_create())
+        service.create_contract(db_session, make_contract_create(), "inactive-customer")
 
 
 def test_create_contract_rejects_invalid_effective_period(db_session):
@@ -183,6 +203,7 @@ def test_create_contract_rejects_invalid_effective_period(db_session):
                 valid_from=date(2026, 12, 31),
                 valid_to=date(2026, 1, 1),
             ),
+            "invalid-period",
         )
 
 
@@ -198,6 +219,7 @@ def test_create_contract_rejects_duplicate_service_ids(db_session):
                     {"service_id": 1, "quantity": 3},
                 ]
             ),
+            "duplicate-service",
         )
 
 
@@ -208,6 +230,7 @@ def test_create_contract_rejects_unavailable_service_id(db_session):
         service.create_contract(
             db_session,
             make_contract_create(services=[{"service_id": 999, "quantity": 1}]),
+            "unavailable-service",
         )
 
 
@@ -219,7 +242,9 @@ def test_create_contract_rejects_non_positive_quantity():
 def test_list_contracts_returns_core_information(db_session):
     service = make_service()
     service.create_contract(
-        db_session, make_contract_create(services=multi_service_payload())
+        db_session,
+        make_contract_create(services=multi_service_payload()),
+        "list-contracts",
     )
 
     contracts = service.list_contracts(db_session)
@@ -233,13 +258,16 @@ def test_list_contracts_returns_core_information(db_session):
 def test_get_contract_detail_returns_services_without_service_ids(db_session):
     service = make_service()
     contract = service.create_contract(
-        db_session, make_contract_create(services=multi_service_payload())
+        db_session,
+        make_contract_create(services=multi_service_payload()),
+        "get-detail",
     )
 
     detail = service.get_contract_detail(db_session, contract.id)
 
     assert detail.contract_id == contract.id
     assert detail.customer_name == "Samsung Electronics HCMC"
+    assert detail.payment_terms == "Monthly payment within 15 days"
     assert detail.total_value == Decimal("2850000.00")
     assert detail.updated_at == contract.updated_at
     assert len(detail.services) == 2
@@ -257,7 +285,7 @@ def test_get_contract_detail_rejects_unknown_contract(db_session):
 
 def test_contract_views_use_unknown_customer_fallback(db_session):
     create_service = make_service()
-    create_service.create_contract(db_session, make_contract_create())
+    create_service.create_contract(db_session, make_contract_create(), "unknown-customer")
     view_service = make_contract_service(StubCustomerClient(None))
 
     contracts = view_service.list_contracts(db_session)
@@ -265,9 +293,73 @@ def test_contract_views_use_unknown_customer_fallback(db_session):
     assert contracts[0].customer_name == "Unknown Customer"
 
 
+def test_create_contract_increments_yearly_contract_id_sequence(db_session):
+    service = make_service_for_year(2026)
+
+    first_contract = service.create_contract(
+        db_session, make_contract_create(), "create-2026-1"
+    )
+    second_contract = service.create_contract(
+        db_session, make_contract_create(), "create-2026-2"
+    )
+
+    assert first_contract.id == "HD-2026-001"
+    assert second_contract.id == "HD-2026-002"
+
+
+def test_create_contract_resets_contract_id_sequence_for_new_year(db_session):
+    service_2026 = make_service_for_year(2026)
+    service_2027 = make_service_for_year(2027)
+
+    service_2026.create_contract(db_session, make_contract_create(), "create-2026")
+    contract_2027 = service_2027.create_contract(
+        db_session, make_contract_create(), "create-2027"
+    )
+
+    assert contract_2027.id == "HD-2027-001"
+
+
+def test_create_contract_is_idempotent_for_same_key_and_payload(db_session):
+    service = make_service_for_year(2026)
+    contract_in = make_contract_create()
+
+    first_contract = service.create_contract(db_session, contract_in, "same-key")
+    retry_contract = service.create_contract(db_session, contract_in, "same-key")
+
+    assert first_contract.id == "HD-2026-001"
+    assert retry_contract.id == first_contract.id
+    assert db_session.query(Contract).count() == 1
+
+
+def test_create_contract_rejects_same_idempotency_key_with_different_payload(
+    db_session,
+):
+    service = make_service_for_year(2026)
+
+    service.create_contract(db_session, make_contract_create(), "same-key")
+
+    with pytest.raises(IdempotencyConflictError):
+        service.create_contract(
+            db_session,
+            make_contract_create(payment_terms="Payment within 30 days"),
+            "same-key",
+        )
+
+
+def test_create_contract_rejects_when_yearly_contract_number_limit_is_reached(
+    db_session,
+):
+    service = make_service_for_year(2026)
+    db_session.add(ContractYearSequence(year=2026, last_number=999))
+    db_session.commit()
+
+    with pytest.raises(ContractNumberLimitError):
+        service.create_contract(db_session, make_contract_create(), "limit-reached")
+
+
 def test_update_contract_status_allows_expected_lifecycle_transitions(db_session):
     service = make_service()
-    contract = service.create_contract(db_session, make_contract_create())
+    contract = service.create_contract(db_session, make_contract_create(), "status-flow")
 
     submitted = service.update_contract_status(
         db_session, contract.id, ContractStatusUpdate(status="SUBMITTED")
@@ -286,7 +378,7 @@ def test_update_contract_status_allows_expected_lifecycle_transitions(db_session
 
 def test_update_contract_status_rejects_invalid_transition(db_session):
     service = make_service()
-    contract = service.create_contract(db_session, make_contract_create())
+    contract = service.create_contract(db_session, make_contract_create(), "bad-status")
 
     with pytest.raises(InvalidContractStatusTransitionError):
         service.update_contract_status(
@@ -296,7 +388,7 @@ def test_update_contract_status_rejects_invalid_transition(db_session):
 
 def test_update_contract_modifies_draft_dates_and_replaces_services(db_session):
     service = make_service()
-    contract = service.create_contract(db_session, make_contract_create())
+    contract = service.create_contract(db_session, make_contract_create(), "update-info")
     new_valid_from = date.today() + timedelta(days=30)
     new_valid_to = date.today() + timedelta(days=300)
 
@@ -327,7 +419,7 @@ def test_update_contract_modifies_draft_dates_and_replaces_services(db_session):
 
 def test_update_contract_rejects_non_draft_contract(db_session):
     service = make_service()
-    contract = service.create_contract(db_session, make_contract_create())
+    contract = service.create_contract(db_session, make_contract_create(), "non-draft")
     new_valid_from = date.today() + timedelta(days=30)
     service.update_contract_status(
         db_session, contract.id, ContractStatusUpdate(status="SUBMITTED")
@@ -343,7 +435,7 @@ def test_update_contract_rejects_non_draft_contract(db_session):
 
 def test_update_contract_rejects_non_future_valid_from(db_session):
     service = make_service()
-    contract = service.create_contract(db_session, make_contract_create())
+    contract = service.create_contract(db_session, make_contract_create(), "bad-from")
 
     with pytest.raises(ContractValidationError) as exc:
         service.update_contract(
@@ -360,7 +452,7 @@ def test_update_contract_rejects_non_future_valid_from(db_session):
 
 def test_update_contract_rejects_valid_to_not_after_valid_from(db_session):
     service = make_service()
-    contract = service.create_contract(db_session, make_contract_create())
+    contract = service.create_contract(db_session, make_contract_create(), "bad-to")
     new_valid_from = date.today() + timedelta(days=30)
 
     with pytest.raises(ContractValidationError) as exc:
@@ -381,6 +473,7 @@ def test_update_contract_updates_parent_timestamp_for_service_only_change(db_ses
             valid_from=date.today() + timedelta(days=30),
             valid_to=date.today() + timedelta(days=300),
         ),
+        "service-only",
     )
     original_updated_at = contract.updated_at
 
@@ -401,6 +494,7 @@ def test_update_contract_rejects_unknown_service_id(db_session):
             valid_from=date.today() + timedelta(days=30),
             valid_to=date.today() + timedelta(days=300),
         ),
+        "unknown-update-service",
     )
 
     with pytest.raises(ContractServiceUnavailableError):
@@ -413,7 +507,7 @@ def test_update_contract_rejects_unknown_service_id(db_session):
 
 def test_delete_contract_removes_draft_contract_and_services(db_session):
     service = make_service()
-    contract = service.create_contract(db_session, make_contract_create())
+    contract = service.create_contract(db_session, make_contract_create(), "delete")
 
     service.delete_contract(db_session, contract.id)
 
@@ -423,7 +517,7 @@ def test_delete_contract_removes_draft_contract_and_services(db_session):
 
 def test_delete_contract_rejects_non_draft_contract(db_session):
     service = make_service()
-    contract = service.create_contract(db_session, make_contract_create())
+    contract = service.create_contract(db_session, make_contract_create(), "no-delete")
     service.update_contract_status(
         db_session, contract.id, ContractStatusUpdate(status="SUBMITTED")
     )
