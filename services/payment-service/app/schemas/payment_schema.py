@@ -1,12 +1,22 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
 from app.models.payment_model import PaymentStatus
 
 
-class PaymentPeriodRequest(BaseModel):
+class ApiModel(BaseModel):
+    @field_serializer("*", check_fields=False, when_used="json")
+    def serialize_decimal(self, value):
+        if not isinstance(value, Decimal):
+            return value
+
+        formatted = format(value, "f").rstrip("0").rstrip(".")
+        return "0" if formatted in {"", "-0"} else formatted
+
+
+class PaymentPeriodRequest(ApiModel):
     customer_id: str = Field(min_length=1, max_length=100)
     contract_id: str = Field(min_length=1, max_length=100)
     period_start: date
@@ -20,10 +30,11 @@ class PaymentPeriodRequest(BaseModel):
         return self
 
 
-class PaymentLinePreview(BaseModel):
+class PaymentLinePreview(ApiModel):
     service_id: str
     description: str
-    quantity: Decimal
+    confirmed_quantity: Decimal
+    billing_quantity: Decimal
     unit_price_snapshot: Decimal
     line_amount: Decimal
     tax_rate: Decimal
@@ -41,8 +52,41 @@ class PaymentCreate(PaymentPeriodRequest):
     pass
 
 
-class PaymentUpdate(BaseModel):
-    tax_rate: Decimal = Field(ge=0, le=1)
+class PaymentLineUpdate(ApiModel):
+    model_config = ConfigDict(extra="forbid")
+
+    service_id: str = Field(min_length=1, max_length=100)
+    billing_quantity: Decimal | None = Field(default=None, gt=0)
+    tax_rate: Decimal | None = Field(default=None, ge=0, le=1)
+    remove: bool = False
+
+    @model_validator(mode="after")
+    def validate_line_action(self):
+        if not self.remove and self.billing_quantity is None:
+            raise ValueError(
+                "billing_quantity is required unless remove is true"
+            )
+        return self
+
+
+class PaymentUpdate(ApiModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(min_length=3, max_length=1000)
+    tax_rate: Decimal | None = Field(default=None, ge=0, le=1)
+    lines: list[PaymentLineUpdate] | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def validate_update(self):
+        if self.tax_rate is None and self.lines is None:
+            raise ValueError("At least one of tax_rate or lines must be provided")
+
+        if self.lines is not None:
+            service_ids = [line.service_id for line in self.lines]
+            if len(service_ids) != len(set(service_ids)):
+                raise ValueError("Payment lines must have unique service_id values")
+
+        return self
 
 
 class PaymentLineResponse(PaymentLinePreview):
@@ -50,32 +94,57 @@ class PaymentLineResponse(PaymentLinePreview):
     id: str
 
 
-class AdjustmentCreate(BaseModel):
-    reason: str = Field(min_length=3, max_length=1000)
-    amount: Decimal
+class AdjustmentCreate(ApiModel):
+    model_config = ConfigDict(extra="forbid")
+
+    revision_request_id: str = Field(min_length=1, max_length=100)
+    adjustment_note: str = Field(min_length=3, max_length=2000)
+    tax_rate: Decimal | None = Field(default=None, ge=0, le=1)
+    lines: list[PaymentLineUpdate] | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def validate_adjustment(self):
+        if self.tax_rate is None and self.lines is None:
+            raise ValueError("At least one of tax_rate or lines must be provided")
+        if self.lines is not None:
+            service_ids = [line.service_id for line in self.lines]
+            if len(service_ids) != len(set(service_ids)):
+                raise ValueError("Adjustment lines must have unique service_id values")
+        return self
 
 
-class AdjustmentResponse(AdjustmentCreate):
+class AdjustmentResponse(ApiModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
     payment_id: str
+    revision_request_id: str | None
+    adjustment_note: str
+    amount: Decimal
     status: str
+    change_type: str
+    action: str | None
+    service_id: str | None
+    confirmed_quantity: Decimal | None
+    previous_billing_quantity: Decimal | None
+    new_billing_quantity: Decimal | None
+    previous_tax_rate: Decimal | None
+    new_tax_rate: Decimal | None
     created_at: datetime
 
 
-class PaymentResponse(BaseModel):
+class PaymentResponse(ApiModel):
     model_config = ConfigDict(
         from_attributes=True,
         json_schema_extra={
             "example": {
-                "id": "payment-001",
+                "id": "TT-2026-001",
                 "customer_id": "customer-001",
                 "contract_id": "contract-001",
                 "period_start": "2026-08-01",
                 "period_end": "2026-08-31",
-                "subtotal": "1440000.00",
-                "tax_amount": "144000.00",
-                "total_amount": "1584000.00",
+                "subtotal": "1440000",
+                "tax_amount": "144000",
+                "total_amount": "1584000",
                 "status": "DRAFT",
                 "approval_instance_id": None,
                 "lines": [
@@ -83,11 +152,12 @@ class PaymentResponse(BaseModel):
                         "id": "payment-line-001",
                         "service_id": "CONTAINER_20",
                         "description": "20-foot container handling",
-                        "quantity": "12.0000",
-                        "unit_price_snapshot": "120000.00",
-                        "line_amount": "1440000.00",
-                        "tax_rate": "0.1000",
-                        "tax_amount": "144000.00"
+                        "confirmed_quantity": "12",
+                        "billing_quantity": "12",
+                        "unit_price_snapshot": "120000",
+                        "line_amount": "1440000",
+                        "tax_rate": "0.1",
+                        "tax_amount": "144000"
                     }
                 ],
                 "adjustments": [],

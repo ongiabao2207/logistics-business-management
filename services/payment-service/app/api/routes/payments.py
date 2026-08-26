@@ -5,7 +5,6 @@ from app.api.dependencies import get_payment_service
 from app.db.session import get_db
 from app.schemas.payment_schema import (
     AdjustmentCreate,
-    AdjustmentResponse,
     PaymentCreate,
     PaymentPeriodRequest,
     PaymentPreviewResponse,
@@ -52,7 +51,7 @@ def get_payment(payment_id: str, db: Session = Depends(get_db), service: Payment
 
 @router.patch("/{payment_id}", response_model=PaymentResponse)
 def update_payment(payment_id: str, request: PaymentUpdate, db: Session = Depends(get_db), service: PaymentService = Depends(get_payment_service)):
-    return call(lambda: service.recalculate(db, payment_id, request.tax_rate))
+    return call(lambda: service.update_draft(db, payment_id, request))
 
 
 @router.post("/{payment_id}/submit", response_model=PaymentResponse)
@@ -60,6 +59,11 @@ def submit_payment(payment_id: str, db: Session = Depends(get_db), service: Paym
     return call(lambda: service.submit(db, payment_id))
 
 
-@router.post("/{payment_id}/adjustments", response_model=AdjustmentResponse, status_code=status.HTTP_201_CREATED)
-def create_adjustment(payment_id: str, request: AdjustmentCreate, db: Session = Depends(get_db), service: PaymentService = Depends(get_payment_service)):
+@router.post("/{payment_id}/adjustments", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)
+def create_adjustment(
+    payment_id: str,
+    request: AdjustmentCreate,
+    db: Session = Depends(get_db),
+    service: PaymentService = Depends(get_payment_service),
+):
     return call(lambda: service.adjust(db, payment_id, request))

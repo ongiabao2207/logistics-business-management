@@ -1,3 +1,10 @@
+CREATE TABLE payment_number_sequences (
+    year INTEGER PRIMARY KEY,
+    last_number INTEGER NOT NULL DEFAULT 0,
+    CONSTRAINT ck_payment_number_sequences_range
+        CHECK (last_number >= 0 AND last_number <= 999)
+);
+
 CREATE TABLE payments (
     id VARCHAR(36) PRIMARY KEY,
     customer_id VARCHAR(100) NOT NULL,
@@ -21,10 +28,13 @@ CREATE TABLE payment_lines (
     payment_id VARCHAR(36) NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
     service_id VARCHAR(100) NOT NULL,
     description VARCHAR(255) NOT NULL,
-    quantity NUMERIC(18, 4) NOT NULL,
-    unit_price_snapshot NUMERIC(18, 2) NOT NULL,
+    confirmed_quantity NUMERIC(18, 4) NOT NULL CHECK (confirmed_quantity > 0),
+    billing_quantity NUMERIC(18, 4) NOT NULL CHECK (
+        billing_quantity > 0 AND billing_quantity <= confirmed_quantity
+    ),
+    unit_price_snapshot NUMERIC(18, 2) NOT NULL CHECK (unit_price_snapshot >= 0),
     line_amount NUMERIC(18, 2) NOT NULL,
-    tax_rate NUMERIC(5, 4) NOT NULL,
+    tax_rate NUMERIC(5, 4) NOT NULL CHECK (tax_rate >= 0 AND tax_rate <= 1),
     tax_amount NUMERIC(18, 2) NOT NULL
 );
 
@@ -36,6 +46,15 @@ CREATE TABLE payment_adjustments (
     reason TEXT NOT NULL,
     amount NUMERIC(18, 2) NOT NULL,
     status VARCHAR(30) NOT NULL DEFAULT 'DRAFT',
+    change_type VARCHAR(30) NOT NULL DEFAULT 'MANUAL_AMOUNT',
+    action VARCHAR(20),
+    revision_request_id VARCHAR(100),
+    service_id VARCHAR(100),
+    confirmed_quantity NUMERIC(18, 4),
+    previous_billing_quantity NUMERIC(18, 4),
+    new_billing_quantity NUMERIC(18, 4),
+    previous_tax_rate NUMERIC(5, 4),
+    new_tax_rate NUMERIC(5, 4),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
