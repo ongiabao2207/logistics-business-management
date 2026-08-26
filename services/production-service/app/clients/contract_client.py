@@ -1,0 +1,44 @@
+from dataclasses import dataclass
+from datetime import date
+from typing import Protocol
+
+import httpx
+
+
+@dataclass(frozen=True)
+class ContractValidation:
+    customer_id: str
+    allowed_service_codes: set[str]
+
+
+class ContractClient(Protocol):
+    def validate_production_period(self, contract_id: str, from_date: date, to_date: date) -> ContractValidation: ...
+
+
+class HttpContractClient:
+    """Adapter for the planned public Contract Service validation endpoint."""
+
+    def __init__(self, base_url: str) -> None:
+        self.base_url = base_url.rstrip("/")
+
+    def validate_production_period(self, contract_id: str, from_date: date, to_date: date) -> ContractValidation:
+        response = httpx.get(
+            f"{self.base_url}/api/v1/contracts/{contract_id}/validate-services",
+            params={"fromDate": from_date.isoformat(), "toDate": to_date.isoformat()},
+            timeout=5.0,
+        )
+        response.raise_for_status()
+        data = response.json()
+        return ContractValidation(customer_id=data["customer_id"], allowed_service_codes=set(data["service_codes"]))
+
+
+class FakeContractClient:
+    """Deterministic development substitute until Contract Service exposes its API."""
+
+    def validate_production_period(self, contract_id: str, from_date: date, to_date: date) -> ContractValidation:
+        if contract_id == "invalid-contract":
+            raise ValueError("Contract is not valid for the requested production period")
+        return ContractValidation(
+            customer_id="customer-demo",
+            allowed_service_codes={"LOADING", "STORAGE", "TRANSPORT"},
+        )
