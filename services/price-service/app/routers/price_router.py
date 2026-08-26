@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.schemas.price_schema import (
-    ActiveServicePriceResponse,
+    EffectiveServicePriceResponse,
     PriceListCreate,
     PriceListResponse,
     PriceListUpdate,
@@ -50,11 +50,11 @@ def list_price_lists(
 
 
 @router.get(
-    "/price-lists/active/services/{service_id}",
-    response_model=ActiveServicePriceResponse,
+    "/price-lists/effective/services/{service_id}",
+    response_model=EffectiveServicePriceResponse,
 )
-def get_active_service_price(service_id: int, db: Session = Depends(get_db)):
-    return price_service.get_active_service_price(db, service_id)
+def get_effective_service_price(service_id: int, db: Session = Depends(get_db)):
+    return price_service.get_effective_service_price(db, service_id)
 
 
 @router.get("/price-lists/{price_list_id}", response_model=PriceListResponse)
@@ -77,3 +77,13 @@ def delete_price_list(price_list_id: str, db: Session = Depends(get_db)) -> None
 @router.post("/price-lists/{price_list_id}/submit", response_model=PriceListResponse)
 def submit_price_list(price_list_id: str, db: Session = Depends(get_db)):
     return price_service.submit_price_list(db, price_list_id)
+
+
+@router.post("/price-lists/{price_list_id}/approve", response_model=PriceListResponse)
+def approve_price_list(price_list_id: str, db: Session = Depends(get_db)):
+    return price_service.approve_price_list(db, price_list_id)
+
+
+@router.post("/price-lists/{price_list_id}/reject", response_model=PriceListResponse)
+def reject_price_list(price_list_id: str, db: Session = Depends(get_db)):
+    return price_service.reject_price_list(db, price_list_id)

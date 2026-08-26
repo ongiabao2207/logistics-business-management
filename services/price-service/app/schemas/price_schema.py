@@ -2,22 +2,25 @@ from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class PriceListStatus(StrEnum):
     DRAFT = "DRAFT"
     SUBMITTED = "SUBMITTED"
     APPROVED = "APPROVED"
-    ACTIVE = "ACTIVE"
+    REJECTED = "REJECTED"
+    EFFECTIVE = "EFFECTIVE"
+    SUPERSEDED = "SUPERSEDED"
     EXPIRED = "EXPIRED"
 
 
 class ServiceCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     description: str = Field(min_length=1, max_length=500)
-    is_active: bool = True
     unit: str = Field(min_length=1, max_length=50)
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class ServiceUpdate(BaseModel):
@@ -65,22 +68,37 @@ class PriceListDatesMixin(BaseModel):
 
 class PriceListCreate(PriceListDatesMixin):
     description: str = Field(min_length=1, max_length=500)
-    version: int = Field(gt=0)
     details: list[PriceListDetailCreate] = Field(min_length=1)
+
+    @field_validator("description")
+    @classmethod
+    def normalize_description(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("description must not be blank")
+        return value
 
 
 class PriceListUpdate(BaseModel):
     description: str | None = Field(default=None, min_length=1, max_length=500)
-    version: int | None = Field(default=None, gt=0)
     effective_from: date | None = None
     effective_to: date | None = None
     details: list[PriceListDetailCreate] | None = Field(default=None, min_length=1)
+
+    @field_validator("description")
+    @classmethod
+    def normalize_description(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("description must not be blank")
+        return value
 
 
 class PriceListResponse(BaseModel):
     id: str
     description: str
-    version: int
     effective_from: date
     effective_to: date
     status: PriceListStatus
@@ -91,9 +109,8 @@ class PriceListResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class ActiveServicePriceResponse(BaseModel):
+class EffectiveServicePriceResponse(BaseModel):
     price_list_id: str
-    version: int
     service_id: int
     service_name: str
     unit: str

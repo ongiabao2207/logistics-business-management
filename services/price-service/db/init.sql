@@ -11,7 +11,6 @@ CREATE TABLE service (
 CREATE TABLE price_list (
     id VARCHAR(20) PRIMARY KEY,
     description VARCHAR(500) NOT NULL,
-    version INTEGER NOT NULL,
     effective_from DATE NOT NULL,
     effective_to DATE NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',

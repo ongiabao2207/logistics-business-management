@@ -1,6 +1,6 @@
 from datetime import date, datetime, timezone
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.price_model import PriceList, PriceListDetail, Service
@@ -34,7 +34,6 @@ def create_price_list(db: Session, payload: PriceListCreate) -> PriceList:
     entity = PriceList(
         id=next_price_list_id(db),
         description=payload.description,
-        version=payload.version,
         effective_from=payload.effective_from,
         effective_to=payload.effective_to,
         status="DRAFT",
@@ -70,7 +69,7 @@ def list_price_lists(db: Session, offset: int, limit: int) -> list[PriceList]:
     statement = (
         select(PriceList)
         .options(selectinload(PriceList.details))
-        .order_by(PriceList.version.desc())
+        .order_by(PriceList.created_at.desc(), PriceList.id.desc())
         .offset(offset)
         .limit(limit)
     )
@@ -86,10 +85,12 @@ def get_price_list(db: Session, price_list_id: str) -> PriceList | None:
     return db.scalar(statement)
 
 
-def find_price_list_by_version(
-    db: Session, version: int, exclude_id: str | None = None
+def find_price_list_by_description(
+    db: Session, description: str, exclude_id: str | None = None
 ) -> PriceList | None:
-    statement = select(PriceList).where(PriceList.version == version)
+    statement = select(PriceList).where(
+        func.lower(func.trim(PriceList.description)) == description.strip().lower()
+    )
     if exclude_id is not None:
         statement = statement.where(PriceList.id != exclude_id)
     return db.scalar(statement)
@@ -103,21 +104,29 @@ def replace_price_details(
     db.flush()
 
 
-def get_active_price_list(db: Session) -> PriceList | None:
+def get_effective_price_list(db: Session) -> PriceList | None:
     statement = (
         select(PriceList)
         .options(selectinload(PriceList.details))
-        .where(PriceList.status == "ACTIVE")
+        .where(PriceList.status == "EFFECTIVE")
     )
     return db.scalar(statement)
 
 
-def get_active_service_price(db: Session, service_id: int) -> tuple[PriceList, PriceListDetail] | None:
+def get_effective_service_price(
+    db: Session, service_id: int
+) -> tuple[PriceList, PriceListDetail] | None:
+    today = date.today()
     statement = (
         select(PriceListDetail)
         .join(PriceList)
         .options(selectinload(PriceListDetail.price_list))
-        .where(PriceList.status == "ACTIVE", PriceListDetail.service_id == service_id)
+        .where(
+            PriceList.status == "EFFECTIVE",
+            PriceList.effective_from <= today,
+            PriceList.effective_to >= today,
+            PriceListDetail.service_id == service_id,
+        )
     )
     detail = db.scalar(statement)
     if detail is None:
@@ -130,17 +139,48 @@ def delete_price_list(db: Session, price_list: PriceList) -> None:
     db.flush()
 
 
-def expire_active_price_list(db: Session, except_id: str) -> None:
-    active = db.scalar(
-        select(PriceList).where(PriceList.status == "ACTIVE", PriceList.id != except_id)
+def supersede_overlapping_effective_price_lists(
+    db: Session, start: date, end: date, except_id: str
+) -> None:
+    statement = select(PriceList).where(
+        PriceList.status == "EFFECTIVE",
+        PriceList.id != except_id,
+        PriceList.effective_from <= end,
+        PriceList.effective_to >= start,
     )
-    if active is not None:
-        active.status = "EXPIRED"
+    for price_list in db.scalars(statement):
+        price_list.status = "SUPERSEDED"
 
 
-def has_active_date_conflict(db: Session, start: date, end: date, exclude_id: str) -> bool:
+def lock_effective_period_check(db: Session) -> None:
+    if db.get_bind().dialect.name == "postgresql":
+        db.execute(text("SELECT pg_advisory_xact_lock(hashtext('price-list-effective-period'))"))
+
+
+def list_elapsed_price_lists(db: Session, today: date) -> list[PriceList]:
+    statement = select(PriceList).where(
+        PriceList.status.in_(("APPROVED", "EFFECTIVE")),
+        PriceList.effective_to < today,
+    )
+    return list(db.scalars(statement))
+
+
+def list_due_approved_price_lists(db: Session, today: date) -> list[PriceList]:
+    statement = (
+        select(PriceList)
+        .where(
+            PriceList.status == "APPROVED",
+            PriceList.effective_from <= today,
+            PriceList.effective_to >= today,
+        )
+        .order_by(PriceList.effective_from, PriceList.id)
+    )
+    return list(db.scalars(statement))
+
+
+def has_approved_date_conflict(db: Session, start: date, end: date, exclude_id: str) -> bool:
     statement = select(PriceList.id).where(
-        PriceList.status == "ACTIVE",
+        PriceList.status == "APPROVED",
         PriceList.id != exclude_id,
         PriceList.effective_from <= end,
         PriceList.effective_to >= start,
