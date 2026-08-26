@@ -1,0 +1,1 @@
+ALTER TABLE price_list DROP COLUMN IF EXISTS version;
