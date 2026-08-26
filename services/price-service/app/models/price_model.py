@@ -12,7 +12,6 @@ class PriceList(Base):
 
     id: Mapped[str] = mapped_column(String(20), primary_key=True)
     description: Mapped[str] = mapped_column(String(500), nullable=False)
-    version: Mapped[int] = mapped_column(Integer, nullable=False)
     effective_from: Mapped[date] = mapped_column(Date, nullable=False)
     effective_to: Mapped[date] = mapped_column(Date, nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="DRAFT")

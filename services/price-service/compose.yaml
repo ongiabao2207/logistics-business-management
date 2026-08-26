@@ -21,7 +21,7 @@ services:
     environment:
       PRICE_DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/price_db
     ports:
-      - "8001:8001"
+      - "8002:8001"
     depends_on:
       db:
         condition: service_healthy

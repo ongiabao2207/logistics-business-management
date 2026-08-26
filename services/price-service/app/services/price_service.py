@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -5,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.crud import price_crud
 from app.models.price_model import PriceList, Service
 from app.schemas.price_schema import (
-    ActiveServicePriceResponse,
+    EffectiveServicePriceResponse,
     PriceListCreate,
     PriceListStatus,
     PriceListUpdate,
@@ -89,8 +91,10 @@ def _validate_details(db: Session, payload_details) -> None:
 
 
 def create_price_list(db: Session, payload: PriceListCreate) -> PriceList:
-    if price_crud.find_price_list_by_version(db, payload.version):
-        raise PriceServiceError(status.HTTP_409_CONFLICT, "Price-list version already exists")
+    if price_crud.find_price_list_by_description(db, payload.description):
+        raise PriceServiceError(
+            status.HTTP_409_CONFLICT, "Price list description already exists"
+        )
     _validate_details(db, payload.details)
     entity = price_crud.create_price_list(db, payload)
     _commit(db)
@@ -98,10 +102,12 @@ def create_price_list(db: Session, payload: PriceListCreate) -> PriceList:
 
 
 def list_price_lists(db: Session, offset: int, limit: int) -> list[PriceList]:
+    _synchronize_price_list_statuses(db)
     return price_crud.list_price_lists(db, offset, limit)
 
 
 def get_price_list(db: Session, price_list_id: str) -> PriceList:
+    _synchronize_price_list_statuses(db)
     entity = price_crud.get_price_list(db, price_list_id)
     if entity is None:
         raise _not_found("Price list")
@@ -110,11 +116,19 @@ def get_price_list(db: Session, price_list_id: str) -> PriceList:
 
 def update_price_list(db: Session, price_list_id: str, payload: PriceListUpdate) -> PriceList:
     entity = get_price_list(db, price_list_id)
-    if entity.status != PriceListStatus.DRAFT:
+    if entity.status not in (PriceListStatus.DRAFT, PriceListStatus.REJECTED):
         raise PriceServiceError(
-            status.HTTP_409_CONFLICT, "Only draft price lists can be updated"
+            status.HTTP_409_CONFLICT,
+            "Only draft or rejected price lists can be updated",
         )
     changes = payload.model_dump(exclude_unset=True)
+
+    if "description" in changes and price_crud.find_price_list_by_description(
+        db, changes["description"], entity.id
+    ):
+        raise PriceServiceError(
+            status.HTTP_409_CONFLICT, "Price list description already exists"
+        )
 
     start = changes.get("effective_from", entity.effective_from)
     end = changes.get("effective_to", entity.effective_to)
@@ -124,11 +138,6 @@ def update_price_list(db: Session, price_list_id: str, payload: PriceListUpdate)
             "effective_to must be on or after effective_from",
         )
 
-    if "version" in changes and price_crud.find_price_list_by_version(
-        db, changes["version"], entity.id
-    ):
-        raise PriceServiceError(status.HTTP_409_CONFLICT, "Price-list version already exists")
-
     details = payload.details if "details" in payload.model_fields_set else None
     changes.pop("details", None)
     if details is not None:
@@ -137,6 +146,9 @@ def update_price_list(db: Session, price_list_id: str, payload: PriceListUpdate)
 
     for field, value in changes.items():
         setattr(entity, field, value)
+
+    if entity.status == PriceListStatus.REJECTED:
+        entity.status = PriceListStatus.DRAFT.value
 
     _commit(db)
     return get_price_list(db, entity.id)
@@ -167,17 +179,82 @@ def submit_price_list(db: Session, price_list_id: str) -> PriceList:
     return get_price_list(db, entity.id)
 
 
-def get_active_service_price(db: Session, service_id: int) -> ActiveServicePriceResponse:
+def _ensure_no_effective_period_conflict(db: Session, entity: PriceList) -> None:
+    price_crud.lock_effective_period_check(db)
+    if price_crud.has_approved_date_conflict(
+        db, entity.effective_from, entity.effective_to, entity.id
+    ):
+        raise PriceServiceError(
+            status.HTTP_409_CONFLICT,
+            "Price list effective period overlaps an approved price list",
+        )
+
+
+def _synchronize_price_list_statuses(db: Session) -> None:
+    today = date.today()
+    price_crud.lock_effective_period_check(db)
+    changed = False
+
+    for entity in price_crud.list_elapsed_price_lists(db, today):
+        entity.status = PriceListStatus.EXPIRED.value
+        changed = True
+
+    for entity in price_crud.list_due_approved_price_lists(db, today):
+        price_crud.supersede_overlapping_effective_price_lists(
+            db, entity.effective_from, entity.effective_to, entity.id
+        )
+        entity.status = PriceListStatus.EFFECTIVE.value
+        changed = True
+
+    if changed:
+        _commit(db)
+
+
+def approve_price_list(db: Session, price_list_id: str) -> PriceList:
+    entity = get_price_list(db, price_list_id)
+    if entity.status != PriceListStatus.SUBMITTED:
+        raise PriceServiceError(
+            status.HTTP_409_CONFLICT, "Only submitted price lists can be approved"
+        )
+    _ensure_no_effective_period_conflict(db, entity)
+    today = date.today()
+    if entity.effective_to < today:
+        raise PriceServiceError(
+            status.HTTP_409_CONFLICT, "Expired price lists cannot be approved"
+        )
+    if entity.effective_from > today:
+        entity.status = PriceListStatus.APPROVED.value
+    else:
+        price_crud.supersede_overlapping_effective_price_lists(
+            db, entity.effective_from, entity.effective_to, entity.id
+        )
+        entity.status = PriceListStatus.EFFECTIVE.value
+    _commit(db)
+    return get_price_list(db, entity.id)
+
+
+def reject_price_list(db: Session, price_list_id: str) -> PriceList:
+    entity = get_price_list(db, price_list_id)
+    if entity.status != PriceListStatus.SUBMITTED:
+        raise PriceServiceError(
+            status.HTTP_409_CONFLICT, "Only submitted price lists can be rejected"
+        )
+    entity.status = PriceListStatus.REJECTED.value
+    _commit(db)
+    return get_price_list(db, entity.id)
+
+
+def get_effective_service_price(db: Session, service_id: int) -> EffectiveServicePriceResponse:
+    _synchronize_price_list_statuses(db)
     service = get_service(db, service_id)
-    result = price_crud.get_active_service_price(db, service_id)
+    result = price_crud.get_effective_service_price(db, service_id)
     if result is None:
         raise PriceServiceError(
-            status.HTTP_404_NOT_FOUND, "No active price found for this service"
+            status.HTTP_404_NOT_FOUND, "No effective price found for this service"
         )
     price_list, detail = result
-    return ActiveServicePriceResponse(
+    return EffectiveServicePriceResponse(
         price_list_id=price_list.id,
-        version=price_list.version,
         service_id=service.id,
         service_name=service.name,
         unit=service.unit,

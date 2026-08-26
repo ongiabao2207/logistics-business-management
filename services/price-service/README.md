@@ -6,43 +6,45 @@ service khác.
 Mã bảng giá do hệ thống tự sinh theo dạng `BG-{năm}-{số thứ tự}`, ví dụ
 `BG-2026-001`, `BG-2026-002`. Số thứ tự tăng riêng trong từng năm.
 
-## Cài đặt
-
-```powershell
-cd D:\logistics-business-management\services\price-service
-python -m pip install -e ".[test]"
-```
-
-Thiết lập kết nối PostgreSQL:
-
-```powershell
-$env:PRICE_DATABASE_URL="postgresql+psycopg://postgres:password@localhost:5432/price_db"
-```
-
-Database cần có sẵn các bảng `service`, `price_list` và `price_list_detail`.
-Ứng dụng hiện không tự tạo bảng hoặc chạy migration.
-
-## Chạy service
-
-```powershell
-python -m uvicorn app.main:app --reload --port 8001
-```
-
-- Swagger: `http://127.0.0.1:8001/docs`
-- Health check: `http://127.0.0.1:8001/api/v1/health`
-
 ## Chạy bằng Docker
 
 ```powershell
-docker compose up --build
+cd D:\logistics-business-management\services\price-service
+docker compose up
 ```
 
-Docker chạy Price Service tại `http://127.0.0.1:8001` và PostgreSQL tại cổng
-`5433`. Dừng các container bằng:
+- Swagger: `http://localhost:8002/docs`
+- Health check: `http://localhost:8002/api/v1/health`
+- PostgreSQL: `localhost:5433`
+
+Kiểm tra container và xem log:
+
+```powershell
+docker compose ps
+docker compose logs -f api
+```
+
+Dừng và xóa container nhưng vẫn giữ dữ liệu PostgreSQL:
 
 ```powershell
 docker compose down
 ```
+
+Khi chạy bằng Docker, không chạy thêm Uvicorn local trên cổng `8001`.
+
+## Chạy local không dùng Docker API
+
+PostgreSQL Docker phải đang chạy tại cổng `5433`:
+
+```powershell
+cd D:\logistics-business-management\services\price-service
+python -m pip install -e ".[test]"
+$env:PRICE_DATABASE_URL="postgresql+psycopg://postgres:postgres@localhost:5433/price_db"
+python -m uvicorn app.main:app --reload --port 8001
+```
+
+- Swagger local: `http://localhost:8001/docs`
+- Chỉ dùng cách này khi không chạy container `api`.
 
 ## API
 
@@ -57,10 +59,12 @@ docker compose down
 - `POST /api/v1/price-lists`: Tạo bảng giá mới ở trạng thái `DRAFT`.
 - `GET /api/v1/price-lists`: Lấy danh sách bảng giá.
 - `GET /api/v1/price-lists/{price_list_id}`: Xem chi tiết bảng giá.
-- `PATCH /api/v1/price-lists/{price_list_id}`: Cập nhật bảng giá `DRAFT`.
+- `PATCH /api/v1/price-lists/{price_list_id}`: Cập nhật bảng giá `DRAFT` hoặc `REJECTED`.
 - `DELETE /api/v1/price-lists/{price_list_id}`: Xóa bảng giá `DRAFT`.
 - `POST /api/v1/price-lists/{price_list_id}/submit`: Gửi bảng giá đi duyệt.
-- `GET /api/v1/price-lists/active/services/{service_id}`: Tra giá hiện tại.
+- `POST /api/v1/price-lists/{price_list_id}/approve`: Phê duyệt bảng giá.
+- `POST /api/v1/price-lists/{price_list_id}/reject`: Từ chối bảng giá.
+- `GET /api/v1/price-lists/effective/services/{service_id}`: Tra giá đang áp dụng.
 
 ### System
 
@@ -69,17 +73,32 @@ docker compose down
 ## Vòng đời bảng giá
 
 ```text
-DRAFT → SUBMITTED → APPROVED → ACTIVE → EXPIRED
+DRAFT → SUBMITTED → APPROVED → EFFECTIVE → EXPIRED
+          ↓             ↓
+       REJECTED      SUPERSEDED
+          ↓
+        DRAFT
 ```
 
 - `DRAFT`: Bảng giá mới tạo, được phép sửa hoặc xóa.
 - `SUBMITTED`: Đã gửi đi duyệt.
-- `APPROVED`: Đã được phê duyệt.
-- `ACTIVE`: Bảng giá đang được áp dụng.
+- `APPROVED`: Đã được phê duyệt nhưng chưa áp dụng.
+- `REJECTED`: Bị từ chối; khi chỉnh sửa bằng `PATCH` sẽ trở về `DRAFT`.
+- `EFFECTIVE`: Đang được áp dụng.
+- `SUPERSEDED`: Đã bị phiên bản mới thay thế.
 - `EXPIRED`: Bảng giá đã hết hiệu lực.
 
-API hiện tại xử lý bước `DRAFT → SUBMITTED`. Các bước phê duyệt và kích hoạt
-sẽ do quy trình phê duyệt xử lý.
+Phê duyệt trước ngày hiệu lực của bảng giá mới: submit -> approved -> effective
+Phê duyệt đúng ngày hiệu lực của bảng giá mới: submit -> effective
+
+Khi phê duyệt, bảng giá chưa tới ngày hiệu lực sẽ thành `APPROVED`. Nếu đang trong
+thời gian hiệu lực, bảng giá thành `EFFECTIVE` và phiên bản cũ thành `SUPERSEDED`.
+Khi trạng thái được truy vấn, hệ thống đồng bộ `APPROVED → EFFECTIVE` từ ngày bắt
+đầu và `EFFECTIVE → EXPIRED` sau ngày kết thúc.
+
+Mỗi mã `BG-...` là một phiên bản được lưu lại trong lịch sử. Hai bảng giá
+`APPROVED` không được chồng thời gian. Khi phiên bản mới được áp dụng, phiên bản
+`EFFECTIVE` cũ bị chồng thời gian sẽ chuyển thành `SUPERSEDED`.
 
 ## Chạy test
 
