@@ -32,6 +32,7 @@ class ContractCRUD:
         db: Session,
         contract_in: ContractCreate,
         service_prices: list[tuple[ContractServiceCreate, ServicePriceInfo]],
+        endpoint: str,
         idempotency_key: str,
         request_hash: str,
     ) -> Contract:
@@ -58,7 +59,7 @@ class ContractCRUD:
         db.add(contract)
         db.add(
             IdempotencyRecord(
-                endpoint="POST /contracts",
+                endpoint=endpoint,
                 idempotency_key=idempotency_key,
                 request_hash=request_hash,
                 resource_type="contract",

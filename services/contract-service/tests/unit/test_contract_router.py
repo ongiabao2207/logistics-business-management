@@ -19,6 +19,9 @@ from app.routers.contract_router import get_contract_service, router
 from app.services.contract_service import ContractService
 
 
+API_PREFIX = "/api/v1"
+
+
 class StubCustomerClient:
     def __init__(self, customer: CustomerInfo | None) -> None:
         self.customer = customer
@@ -62,7 +65,7 @@ def build_client(customer: CustomerInfo | None):
         )
 
     app = FastAPI()
-    app.include_router(router)
+    app.include_router(router, prefix=API_PREFIX)
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_contract_service] = override_get_contract_service
 
@@ -94,7 +97,11 @@ def idempotency_headers(key: str = "create-contract-key"):
 
 
 def create_contract(client: TestClient, key: str = "create-contract-key"):
-    return client.post("/contracts", json=valid_payload(), headers=idempotency_headers(key))
+    return client.post(
+        f"{API_PREFIX}/contracts",
+        json=valid_payload(),
+        headers=idempotency_headers(key),
+    )
 
 
 def test_post_contracts_creates_draft_contract():
@@ -128,7 +135,9 @@ def test_post_contracts_rejects_invalid_effective_period():
     payload["valid_from"] = "2026-12-31"
     payload["valid_to"] = "2026-01-01"
 
-    response = client.post("/contracts", json=payload, headers=idempotency_headers())
+    response = client.post(
+        f"{API_PREFIX}/contracts", json=payload, headers=idempotency_headers()
+    )
 
     assert response.status_code == 422
     assert response.json()["detail"] == "valid_from must not be later than valid_to"
@@ -139,7 +148,9 @@ def test_post_contracts_rejects_unknown_service_id():
     payload = valid_payload()
     payload["services"] = [{"service_id": 999, "quantity": 1}]
 
-    response = client.post("/contracts", json=payload, headers=idempotency_headers())
+    response = client.post(
+        f"{API_PREFIX}/contracts", json=payload, headers=idempotency_headers()
+    )
 
     assert response.status_code == 422
     assert response.json()["detail"] == "service_id values are not available: 999"
@@ -149,7 +160,7 @@ def test_get_contracts_returns_summaries():
     client = build_client(active_customer())
     create_contract(client)
 
-    response = client.get("/contracts")
+    response = client.get(f"{API_PREFIX}/contracts")
 
     assert response.status_code == 200
     body = response.json()
@@ -165,7 +176,7 @@ def test_get_contract_detail_returns_services_without_service_id():
     create_response = create_contract(client)
     contract_id = create_response.json()["id"]
 
-    response = client.get(f"/contracts/{contract_id}")
+    response = client.get(f"{API_PREFIX}/contracts/{contract_id}")
 
     assert response.status_code == 200
     body = response.json()
@@ -182,16 +193,27 @@ def test_get_contract_detail_returns_services_without_service_id():
 def test_get_contract_detail_returns_not_found_for_unknown_contract():
     client = build_client(active_customer())
 
-    response = client.get("/contracts/missing-contract")
+    response = client.get(f"{API_PREFIX}/contracts/missing-contract")
 
     assert response.status_code == 404
     assert response.json()["detail"] == "contract does not exist"
 
 
+def test_health_check_is_versioned():
+    from app.main import app as main_app
+
+    client = TestClient(main_app)
+
+    response = client.get(f"{API_PREFIX}/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
 def test_post_contracts_returns_bad_request_when_idempotency_key_is_missing():
     client = build_client(active_customer())
 
-    response = client.post("/contracts", json=valid_payload())
+    response = client.post(f"{API_PREFIX}/contracts", json=valid_payload())
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Idempotency-Key header is required"
@@ -214,7 +236,9 @@ def test_post_contracts_returns_conflict_for_reused_key_with_different_payload()
 
     create_contract(client, "same-key")
     response = client.post(
-        "/contracts", json=changed_payload, headers=idempotency_headers("same-key")
+        f"{API_PREFIX}/contracts",
+        json=changed_payload,
+        headers=idempotency_headers("same-key"),
     )
 
     assert response.status_code == 409
@@ -230,7 +254,7 @@ def test_patch_contract_status_updates_status():
     contract_id = create_response.json()["id"]
 
     response = client.patch(
-        f"/contracts/{contract_id}/status",
+        f"{API_PREFIX}/contracts/{contract_id}/status",
         json={"status": "SUBMITTED"},
     )
 
@@ -244,7 +268,7 @@ def test_patch_contract_status_rejects_invalid_transition():
     contract_id = create_response.json()["id"]
 
     response = client.patch(
-        f"/contracts/{contract_id}/status",
+        f"{API_PREFIX}/contracts/{contract_id}/status",
         json={"status": "ACTIVE"},
     )
 
@@ -259,7 +283,7 @@ def test_patch_contract_updates_draft_contract():
     new_valid_to = date.today() + timedelta(days=300)
 
     response = client.patch(
-        f"/contracts/{contract_id}",
+        f"{API_PREFIX}/contracts/{contract_id}",
         json={
             "valid_from": new_valid_from.isoformat(),
             "valid_to": new_valid_to.isoformat(),
@@ -282,8 +306,8 @@ def test_delete_contract_deletes_draft_contract():
     create_response = create_contract(client)
     contract_id = create_response.json()["id"]
 
-    response = client.delete(f"/contracts/{contract_id}")
-    detail_response = client.get(f"/contracts/{contract_id}")
+    response = client.delete(f"{API_PREFIX}/contracts/{contract_id}")
+    detail_response = client.get(f"{API_PREFIX}/contracts/{contract_id}")
 
     assert response.status_code == 204
     assert detail_response.status_code == 404
