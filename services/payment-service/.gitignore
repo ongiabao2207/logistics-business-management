@@ -1,0 +1,5 @@
+payment.db
+*.db-journal
+.pytest_cache/
+*.egg-info/
+__pycache__/
