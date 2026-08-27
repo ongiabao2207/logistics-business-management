@@ -1,36 +1,206 @@
+name: logistics-business-management
+
 services:
-  contract-db:
-    image: postgres:16
-    container_name: contract-db
-    environment:
-      POSTGRES_DB: contract_db
-      POSTGRES_USER: contract_user
-      POSTGRES_PASSWORD: contract_password
+  traefik:
+    image: traefik:v3.7.12
+    restart: unless-stopped
+
+    command:
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${TRAEFIK_HTTP_PORT:-80}:80"
+      - "127.0.0.1:${TRAEFIK_DASHBOARD_PORT:-8080}:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - gateway
+
+  contract-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${CONTRACT_DB_NAME:-contract_db}
+      POSTGRES_USER: ${CONTRACT_DB_USER:-contract_user}
+      POSTGRES_PASSWORD: ${CONTRACT_DB_PASSWORD:-contract_password}
+    ports:
+      - "127.0.0.1:${CONTRACT_DB_PORT:-5432}:5432"
     volumes:
       - contract-db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U contract_user -d contract_db"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - contract-data
 
   contract-service:
     build:
       context: ../../services/contract-service
-    container_name: contract-service
+    restart: unless-stopped
     environment:
-      CONTRACT_SERVICE_DATABASE_URL: postgresql+psycopg://contract_user:contract_password@contract-db:5432/contract_db
+      CONTRACT_SERVICE_DATABASE_URL: postgresql+psycopg://${CONTRACT_DB_USER:-contract_user}:${CONTRACT_DB_PASSWORD:-contract_password}@contract-db:5432/${CONTRACT_DB_NAME:-contract_db}
       CONTRACT_SERVICE_CUSTOMER_CLIENT_MODE: fake
-    ports:
-      - "8001:8000"
-    depends_on:
-      contract-db:
-        condition: service_healthy
     command: >
       sh -c "alembic upgrade head &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "127.0.0.1:${CONTRACT_SERVICE_PORT:-8001}:8000"
+    depends_on:
+      contract-db:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=lbm-gateway
+      - traefik.http.routers.contract.rule=Host(`contract.localhost`) || PathPrefix(`/contracts`)
+      - traefik.http.routers.contract.entrypoints=web
+      - traefik.http.services.contract.loadbalancer.server.port=8000
+    networks:
+      - gateway
+      - contract-data
+
+  price-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PRICE_DB_NAME:-price_db}
+      POSTGRES_USER: ${PRICE_DB_USER:-price_user}
+      POSTGRES_PASSWORD: ${PRICE_DB_PASSWORD:-price_password}
+    ports:
+      - "127.0.0.1:${PRICE_DB_PORT:-5433}:5432"
+    volumes:
+      - price-db-data:/var/lib/postgresql/data
+      - ../../services/price-service/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - price-data
+
+  price-service:
+    build:
+      context: ../../services/price-service
+    restart: unless-stopped
+    environment:
+      PRICE_DATABASE_URL: postgresql+psycopg://${PRICE_DB_USER:-price_user}:${PRICE_DB_PASSWORD:-price_password}@price-db:5432/${PRICE_DB_NAME:-price_db}
+    ports:
+      - "127.0.0.1:${PRICE_SERVICE_PORT:-8002}:8001"
+    depends_on:
+      price-db:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=lbm-gateway
+      - traefik.http.routers.price.rule=Host(`price.localhost`) || PathPrefix(`/api/v1/services`) || PathPrefix(`/api/v1/price-lists`)
+      - traefik.http.routers.price.entrypoints=web
+      - traefik.http.services.price.loadbalancer.server.port=8001
+    networks:
+      - gateway
+      - price-data
+
+  production-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PRODUCTION_DB_NAME:-production_db}
+      POSTGRES_USER: ${PRODUCTION_DB_USER:-production_user}
+      POSTGRES_PASSWORD: ${PRODUCTION_DB_PASSWORD:-production_password}
+    ports:
+      - "127.0.0.1:${PRODUCTION_DB_PORT:-5434}:5432"
+    volumes:
+      - production-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - production-data
+
+  production-service:
+    build:
+      context: ../../services/production-service
+    restart: unless-stopped
+    environment:
+      PRODUCTION_DATABASE_URL: postgresql+psycopg://${PRODUCTION_DB_USER:-production_user}:${PRODUCTION_DB_PASSWORD:-production_password}@production-db:5432/${PRODUCTION_DB_NAME:-production_db}
+      PRODUCTION_CONTRACT_CLIENT_MODE: fake
+      PRODUCTION_CONTRACT_SERVICE_URL: http://contract-service:8000
+    ports:
+      - "127.0.0.1:${PRODUCTION_SERVICE_PORT:-8003}:8000"
+    depends_on:
+      production-db:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=lbm-gateway
+      - traefik.http.routers.production.rule=Host(`production.localhost`) || PathPrefix(`/api/v1/production-periods`)
+      - traefik.http.routers.production.entrypoints=web
+      - traefik.http.services.production.loadbalancer.server.port=8000
+    networks:
+      - gateway
+      - production-data
+
+  payment-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PAYMENT_DB_NAME:-payment_db}
+      POSTGRES_USER: ${PAYMENT_DB_USER:-payment_user}
+      POSTGRES_PASSWORD: ${PAYMENT_DB_PASSWORD:-payment_password}
+    ports:
+      - "127.0.0.1:${PAYMENT_DB_PORT:-5435}:5432"
+    volumes:
+      - payment-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - payment-data
+
+  payment-service:
+    build:
+      context: ../../services/payment-service
+    restart: unless-stopped
+    environment:
+      PAYMENT_DATABASE_URL: postgresql+psycopg://${PAYMENT_DB_USER:-payment_user}:${PAYMENT_DB_PASSWORD:-payment_password}@payment-db:5432/${PAYMENT_DB_NAME:-payment_db}
+      PAYMENT_USE_FAKE_CLIENTS: "true"
+    ports:
+      - "127.0.0.1:${PAYMENT_SERVICE_PORT:-8004}:8000"
+    depends_on:
+      payment-db:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=lbm-gateway
+      - traefik.http.routers.payment.rule=Host(`payment.localhost`) || PathPrefix(`/api/v1/payments`)
+      - traefik.http.routers.payment.entrypoints=web
+      - traefik.http.services.payment.loadbalancer.server.port=8000
+    networks:
+      - gateway
+      - payment-data
 
 volumes:
   contract-db-data:
+  price-db-data:
+  production-db-data:
+  payment-db-data:
+
+networks:
+  gateway:
+    name: lbm-gateway
+  contract-data:
+    name: lbm-contract-data
+  price-data:
+    name: lbm-price-data
+  production-data:
+    name: lbm-production-data
+  payment-data:
+    name: lbm-payment-data
