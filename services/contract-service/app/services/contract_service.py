@@ -69,7 +69,7 @@ class ContractNotDeletableError(ContractValidationError):
 
 
 class ContractService:
-    _create_contract_endpoint = "POST /contracts"
+    _create_contract_endpoint = "POST /api/v1/contracts"
     _allowed_status_transitions = {
         "DRAFT": {"SUBMITTED"},
         "SUBMITTED": {"ACTIVE"},
@@ -115,6 +115,7 @@ class ContractService:
                 db,
                 contract_in,
                 service_prices,
+                self._create_contract_endpoint,
                 idempotency_key,
                 request_hash,
             )
