@@ -11,6 +11,9 @@ class Settings:
     price_client_mode: str
     price_service_url: str
     price_client_timeout_seconds: float
+    redis_url: str
+    price_cache_enabled: bool
+    price_cache_ttl_seconds: int
 
 
 @lru_cache
@@ -29,5 +32,13 @@ def get_settings() -> Settings:
         ),
         price_client_timeout_seconds=float(
             os.getenv("CONTRACT_SERVICE_PRICE_CLIENT_TIMEOUT_SECONDS", "5")
+        ),
+        redis_url=os.getenv("CONTRACT_SERVICE_REDIS_URL", "redis://localhost:6379/0"),
+        price_cache_enabled=os.getenv(
+            "CONTRACT_SERVICE_PRICE_CACHE_ENABLED", "false"
+        ).lower()
+        == "true",
+        price_cache_ttl_seconds=int(
+            os.getenv("CONTRACT_SERVICE_PRICE_CACHE_TTL_SECONDS", "300")
         ),
     )

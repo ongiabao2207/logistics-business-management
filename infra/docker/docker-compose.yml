@@ -19,6 +19,16 @@ services:
     networks:
       - gateway
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - gateway
+
   contract-db:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -47,6 +57,9 @@ services:
       CONTRACT_SERVICE_CUSTOMER_CLIENT_MODE: fake
       CONTRACT_SERVICE_PRICE_CLIENT_MODE: http
       CONTRACT_SERVICE_PRICE_SERVICE_URL: http://price-service:8001/api/v1
+      CONTRACT_SERVICE_REDIS_URL: redis://redis:6379/0
+      CONTRACT_SERVICE_PRICE_CACHE_ENABLED: "true"
+      CONTRACT_SERVICE_PRICE_CACHE_TTL_SECONDS: 300
     command: >
       sh -c "alembic upgrade head &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000"
@@ -56,6 +69,8 @@ services:
       contract-db:
         condition: service_healthy
       price-service:
+        condition: service_started
+      redis:
         condition: service_started
     labels:
       - traefik.enable=true
@@ -196,6 +211,7 @@ volumes:
   price-db-data:
   production-db-data:
   payment-db-data:
+  redis-data:
 
 networks:
   gateway:

@@ -8,6 +8,7 @@ dependencies = [
     "fastapi",
     "httpx",
     "psycopg[binary]",
+    "redis",
     "sqlalchemy",
     "uvicorn",
 ]
