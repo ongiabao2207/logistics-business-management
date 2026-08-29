@@ -53,6 +53,9 @@ VALUES (
 )
 ON CONFLICT (id) DO NOTHING;
 
+-- Option 2: only services with effective price rows are contract-usable.
+-- DV005 and DV006 remain catalog services, but are unavailable for contracts
+-- until an effective price is added for them.
 INSERT INTO price_list_detail (price_list_id, service_id, unit_price)
 SELECT 'BG-2026-001', 1, 350000.00
 WHERE NOT EXISTS (
