@@ -45,6 +45,8 @@ services:
     environment:
       CONTRACT_SERVICE_DATABASE_URL: postgresql+psycopg://${CONTRACT_DB_USER:-contract_user}:${CONTRACT_DB_PASSWORD:-contract_password}@contract-db:5432/${CONTRACT_DB_NAME:-contract_db}
       CONTRACT_SERVICE_CUSTOMER_CLIENT_MODE: fake
+      CONTRACT_SERVICE_PRICE_CLIENT_MODE: http
+      CONTRACT_SERVICE_PRICE_SERVICE_URL: http://price-service:8001/api/v1
     command: >
       sh -c "alembic upgrade head &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000"
@@ -53,10 +55,12 @@ services:
     depends_on:
       contract-db:
         condition: service_healthy
+      price-service:
+        condition: service_started
     labels:
       - traefik.enable=true
       - traefik.docker.network=lbm-gateway
-      - traefik.http.routers.contract.rule=Host(`contract.localhost`) || PathPrefix(`/contracts`)
+      - traefik.http.routers.contract.rule=Host(`contract.localhost`) || PathPrefix(`/api/v1/contracts`)
       - traefik.http.routers.contract.entrypoints=web
       - traefik.http.services.contract.loadbalancer.server.port=8000
     networks:

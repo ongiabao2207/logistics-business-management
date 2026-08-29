@@ -6,7 +6,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.clients.customer_client import CustomerClient
-from app.clients.price_client import PriceClient, ServicePriceInfo
+from app.clients.price_client import PriceClient, PriceClientError, ServicePriceInfo
 from app.crud.contract_crud import (
     ContractCRUD,
     ContractNumberLimitReachedError,
@@ -41,6 +41,10 @@ class DuplicateContractServiceError(ContractValidationError):
 
 
 class ContractServiceUnavailableError(ContractValidationError):
+    pass
+
+
+class PriceServiceDependencyError(ContractValidationError):
     pass
 
 
@@ -223,7 +227,10 @@ class ContractService:
         missing_service_ids: list[int] = []
 
         for service in services:
-            service_price = self.price_client.get_service_price(service.service_id)
+            try:
+                service_price = self.price_client.get_service_price(service.service_id)
+            except PriceClientError as exc:
+                raise PriceServiceDependencyError("price service is unavailable") from exc
             if service_price is None:
                 missing_service_ids.append(service.service_id)
                 continue

@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.clients.customer_client import CustomerClient, CustomerInfo, FakeCustomerClient
-from app.clients.price_client import ServicePriceInfo
+from app.clients.price_client import PriceClientError, ServicePriceInfo
 from app.crud.contract_crud import ContractCRUD
 from app.db.base import Base
 from app.models.contract_model import (
@@ -33,6 +33,7 @@ from app.services.contract_service import (
     DuplicateContractServiceError,
     IdempotencyConflictError,
     InvalidContractStatusTransitionError,
+    PriceServiceDependencyError,
 )
 
 
@@ -57,6 +58,11 @@ class StubPriceClient:
 
     def get_service_price(self, service_id: int) -> ServicePriceInfo | None:
         return self.services.get(service_id)
+
+
+class FailingPriceClient:
+    def get_service_price(self, service_id: int) -> ServicePriceInfo | None:
+        raise PriceClientError("price service exploded")
 
 
 @pytest.fixture()
@@ -232,6 +238,16 @@ def test_create_contract_rejects_unavailable_service_id(db_session):
             make_contract_create(services=[{"service_id": 999, "quantity": 1}]),
             "unavailable-service",
         )
+
+
+def test_create_contract_reports_price_service_dependency_failure(db_session):
+    service = ContractService(
+        customer_client=StubCustomerClient(customer_info()),
+        price_client=FailingPriceClient(),
+    )
+
+    with pytest.raises(PriceServiceDependencyError):
+        service.create_contract(db_session, make_contract_create(), "price-failure")
 
 
 def test_create_contract_rejects_non_positive_quantity():

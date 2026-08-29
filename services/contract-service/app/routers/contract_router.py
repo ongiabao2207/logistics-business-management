@@ -23,6 +23,7 @@ from app.services.contract_service import (
     CustomerNotFoundError,
     IdempotencyConflictError,
     InvalidContractStatusTransitionError,
+    PriceServiceDependencyError,
 )
 
 router = APIRouter(prefix="/contracts", tags=["contracts"])
@@ -74,6 +75,10 @@ def create_contract(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         )
+    except PriceServiceDependencyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        )
     except ContractValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
@@ -111,6 +116,10 @@ def update_contract(
     except ContractNotEditableError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
+    except PriceServiceDependencyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
         )
     except ContractValidationError as exc:
         raise HTTPException(
