@@ -56,7 +56,7 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=lbm-gateway
-      - traefik.http.routers.contract.rule=Host(`contract.localhost`) || PathPrefix(`/contracts`)
+      - traefik.http.routers.contract.rule=Host(`contract.localhost`) || PathPrefix(`/api/v1/contracts`)
       - traefik.http.routers.contract.entrypoints=web
       - traefik.http.services.contract.loadbalancer.server.port=8000
     networks:

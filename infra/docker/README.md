@@ -24,7 +24,7 @@ trong môi trường phát triển tại `http://localhost:8080/dashboard/`.
 
 | Thành phần | Route qua Traefik | Cổng truy cập trực tiếp |
 | --- | --- | ---: |
-| Contract Service | `http://localhost/contracts` | `8001` |
+| Contract Service | `http://localhost/api/v1/contracts` | `8001` |
 | Price Service | `http://localhost/api/v1/services` | `8002` |
 | Production Service | `http://localhost/api/v1/production-periods` | `8003` |
 | Payment Service | `http://localhost/api/v1/payments` | `8004` |
@@ -36,6 +36,15 @@ trong môi trường phát triển tại `http://localhost:8080/dashboard/`.
 Các cổng truy cập trực tiếp chỉ được bind vào `127.0.0.1` để phục vụ phát
 triển cục bộ. Giao tiếp giữa các container sử dụng tên service và cổng nội bộ,
 không sử dụng cổng được publish ra máy host.
+
+Có thể truy cập trực tiếp từng API mà không qua Traefik:
+
+| Service | URL truy cập trực tiếp |
+| --- | --- |
+| Contract | `http://localhost:8001/api/v1/contracts` |
+| Price | `http://localhost:8002/api/v1/services` |
+| Production | `http://localhost:8003/api/v1/production-periods` |
+| Payment | `http://localhost:8004/api/v1/payments` |
 
 ## Kiểm tra hệ thống
 
@@ -51,7 +60,7 @@ có trạng thái `Up`.
 Kiểm tra các API qua Traefik bằng route theo đường dẫn:
 
 ```powershell
-curl.exe -i http://127.0.0.1/contracts
+curl.exe -i http://127.0.0.1/api/v1/contracts
 curl.exe -i http://127.0.0.1/api/v1/services
 curl.exe -i http://127.0.0.1/api/v1/production-periods
 curl.exe -i http://127.0.0.1/api/v1/payments
@@ -63,7 +72,7 @@ database chưa có bản ghi.
 Kiểm tra health endpoint của từng service qua Traefik:
 
 ```powershell
-curl.exe -i -H "Host: contract.localhost" http://127.0.0.1/health
+curl.exe -i -H "Host: contract.localhost" http://127.0.0.1/api/v1/health
 curl.exe -i -H "Host: price.localhost" http://127.0.0.1/api/v1/health
 curl.exe -i -H "Host: production.localhost" http://127.0.0.1/health
 curl.exe -i -H "Host: payment.localhost" http://127.0.0.1/health
