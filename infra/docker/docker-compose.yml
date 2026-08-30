@@ -29,6 +29,53 @@ services:
     networks:
       - gateway
 
+  identity-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${IDENTITY_DB_NAME:-identity_db}
+      POSTGRES_USER: ${IDENTITY_DB_USER:-identity_user}
+      POSTGRES_PASSWORD: ${IDENTITY_DB_PASSWORD:-identity_password}
+    ports:
+      - "127.0.0.1:${IDENTITY_DB_PORT:-5436}:5432"
+    volumes:
+      - identity-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - identity-data
+
+  identity-service:
+    build:
+      context: ../../services/identity-service
+    restart: unless-stopped
+    environment:
+      IDENTITY_DATABASE_URL: postgresql+psycopg://${IDENTITY_DB_USER:-identity_user}:${IDENTITY_DB_PASSWORD:-identity_password}@identity-db:5432/${IDENTITY_DB_NAME:-identity_db}
+      IDENTITY_JWT_PRIVATE_KEY_PATH: /run/secrets/jwt-private.pem
+      IDENTITY_JWT_PUBLIC_KEY_PATH: /run/secrets/jwt-public.pem
+      IDENTITY_JWT_ISSUER: identity-service
+      IDENTITY_JWT_AUDIENCE: logistics-api
+      IDENTITY_ACCESS_TOKEN_TTL_MINUTES: 15
+    ports:
+      - "127.0.0.1:${IDENTITY_SERVICE_PORT:-8005}:8000"
+    volumes:
+      - ../../services/identity-service/secrets:/run/secrets:ro
+    depends_on:
+      identity-db:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=lbm-gateway
+      - traefik.http.routers.identity.rule=Host(`identity.localhost`) || PathPrefix(`/api/v1/auth`) || PathPrefix(`/api/v1/accounts`) || PathPrefix(`/api/v1/roles`) || PathPrefix(`/.well-known/jwks.json`)
+      - traefik.http.routers.identity.entrypoints=web
+      - traefik.http.services.identity.loadbalancer.server.port=8000
+    networks:
+      - gateway
+      - identity-data
+
   contract-db:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -60,6 +107,9 @@ services:
       CONTRACT_SERVICE_REDIS_URL: redis://redis:6379/0
       CONTRACT_SERVICE_PRICE_CACHE_ENABLED: "true"
       CONTRACT_SERVICE_PRICE_CACHE_TTL_SECONDS: 300
+      CONTRACT_SERVICE_IDENTITY_JWKS_URL: http://identity-service:8000/.well-known/jwks.json
+      CONTRACT_SERVICE_JWT_ISSUER: identity-service
+      CONTRACT_SERVICE_JWT_AUDIENCE: logistics-api
     command: >
       sh -c "alembic upgrade head &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000"
@@ -71,6 +121,8 @@ services:
       price-service:
         condition: service_started
       redis:
+        condition: service_started
+      identity-service:
         condition: service_started
     labels:
       - traefik.enable=true
@@ -108,11 +160,16 @@ services:
     restart: unless-stopped
     environment:
       PRICE_DATABASE_URL: postgresql+psycopg://${PRICE_DB_USER:-price_user}:${PRICE_DB_PASSWORD:-price_password}@price-db:5432/${PRICE_DB_NAME:-price_db}
+      PRICE_IDENTITY_JWKS_URL: http://identity-service:8000/.well-known/jwks.json
+      PRICE_JWT_ISSUER: identity-service
+      PRICE_JWT_AUDIENCE: logistics-api
     ports:
       - "127.0.0.1:${PRICE_SERVICE_PORT:-8002}:8001"
     depends_on:
       price-db:
         condition: service_healthy
+      identity-service:
+        condition: service_started
     labels:
       - traefik.enable=true
       - traefik.docker.network=lbm-gateway
@@ -150,11 +207,16 @@ services:
       PRODUCTION_DATABASE_URL: postgresql+psycopg://${PRODUCTION_DB_USER:-production_user}:${PRODUCTION_DB_PASSWORD:-production_password}@production-db:5432/${PRODUCTION_DB_NAME:-production_db}
       PRODUCTION_CONTRACT_CLIENT_MODE: fake
       PRODUCTION_CONTRACT_SERVICE_URL: http://contract-service:8000
+      PRODUCTION_IDENTITY_JWKS_URL: http://identity-service:8000/.well-known/jwks.json
+      PRODUCTION_JWT_ISSUER: identity-service
+      PRODUCTION_JWT_AUDIENCE: logistics-api
     ports:
       - "127.0.0.1:${PRODUCTION_SERVICE_PORT:-8003}:8000"
     depends_on:
       production-db:
         condition: service_healthy
+      identity-service:
+        condition: service_started
     labels:
       - traefik.enable=true
       - traefik.docker.network=lbm-gateway
@@ -191,11 +253,16 @@ services:
     environment:
       PAYMENT_DATABASE_URL: postgresql+psycopg://${PAYMENT_DB_USER:-payment_user}:${PAYMENT_DB_PASSWORD:-payment_password}@payment-db:5432/${PAYMENT_DB_NAME:-payment_db}
       PAYMENT_USE_FAKE_CLIENTS: "true"
+      PAYMENT_IDENTITY_JWKS_URL: http://identity-service:8000/.well-known/jwks.json
+      PAYMENT_JWT_ISSUER: identity-service
+      PAYMENT_JWT_AUDIENCE: logistics-api
     ports:
       - "127.0.0.1:${PAYMENT_SERVICE_PORT:-8004}:8000"
     depends_on:
       payment-db:
         condition: service_healthy
+      identity-service:
+        condition: service_started
     labels:
       - traefik.enable=true
       - traefik.docker.network=lbm-gateway
@@ -207,6 +274,7 @@ services:
       - payment-data
 
 volumes:
+  identity-db-data:
   contract-db-data:
   price-db-data:
   production-db-data:
@@ -216,6 +284,8 @@ volumes:
 networks:
   gateway:
     name: lbm-gateway
+  identity-data:
+    name: lbm-identity-data
   contract-data:
     name: lbm-contract-data
   price-data:

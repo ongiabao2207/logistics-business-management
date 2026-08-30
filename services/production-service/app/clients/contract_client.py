@@ -18,13 +18,15 @@ class ContractClient(Protocol):
 class HttpContractClient:
     """Adapter for the planned public Contract Service validation endpoint."""
 
-    def __init__(self, base_url: str) -> None:
+    def __init__(self, base_url: str, access_token: str | None = None) -> None:
         self.base_url = base_url.rstrip("/")
+        self.access_token = access_token
 
     def validate_production_period(self, contract_id: str, from_date: date, to_date: date) -> ContractValidation:
         response = httpx.get(
             f"{self.base_url}/api/v1/contracts/{contract_id}/validate-services",
             params={"fromDate": from_date.isoformat(), "toDate": to_date.isoformat()},
+            headers={"Authorization": f"Bearer {self.access_token}"} if self.access_token else None,
             timeout=5.0,
         )
         response.raise_for_status()

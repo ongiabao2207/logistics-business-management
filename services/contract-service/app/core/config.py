@@ -14,6 +14,9 @@ class Settings:
     redis_url: str
     price_cache_enabled: bool
     price_cache_ttl_seconds: int
+    identity_jwks_url: str
+    jwt_issuer: str
+    jwt_audience: str
 
 
 @lru_cache
@@ -41,4 +44,10 @@ def get_settings() -> Settings:
         price_cache_ttl_seconds=int(
             os.getenv("CONTRACT_SERVICE_PRICE_CACHE_TTL_SECONDS", "300")
         ),
+        identity_jwks_url=os.getenv(
+            "CONTRACT_SERVICE_IDENTITY_JWKS_URL",
+            "http://localhost:8005/.well-known/jwks.json",
+        ),
+        jwt_issuer=os.getenv("CONTRACT_SERVICE_JWT_ISSUER", "identity-service"),
+        jwt_audience=os.getenv("CONTRACT_SERVICE_JWT_AUDIENCE", "logistics-api"),
     )

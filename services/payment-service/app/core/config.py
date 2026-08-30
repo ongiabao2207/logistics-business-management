@@ -9,6 +9,9 @@ class Settings:
     api_prefix: str
     database_url: str
     use_fake_clients: bool
+    identity_jwks_url: str
+    jwt_issuer: str
+    jwt_audience: str
 
 
 @lru_cache
@@ -30,4 +33,10 @@ def get_settings() -> Settings:
             "PAYMENT_USE_FAKE_CLIENTS",
             "true",
         ).lower() == "true",
+        identity_jwks_url=os.getenv(
+            "PAYMENT_IDENTITY_JWKS_URL",
+            "http://localhost:8005/.well-known/jwks.json",
+        ),
+        jwt_issuer=os.getenv("PAYMENT_JWT_ISSUER", "identity-service"),
+        jwt_audience=os.getenv("PAYMENT_JWT_AUDIENCE", "logistics-api"),
     )

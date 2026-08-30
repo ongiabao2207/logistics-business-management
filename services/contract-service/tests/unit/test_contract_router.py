@@ -15,6 +15,7 @@ from app.clients.customer_client import CustomerInfo
 from app.clients.price_client import ServicePriceInfo
 from app.db.base import Base
 from app.db.session import get_db
+from app.core.auth import CurrentUser, get_current_user
 from app.routers.contract_router import get_contract_service, router
 from app.services.contract_service import ContractService
 
@@ -68,6 +69,12 @@ def build_client(customer: CustomerInfo | None):
     app.include_router(router, prefix=API_PREFIX)
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_contract_service] = override_get_contract_service
+    app.dependency_overrides[get_current_user] = lambda: CurrentUser(
+        account_id="sale-1",
+        username="sale_user",
+        role="ROLE_SALE",
+        access_token="test-token",
+    )
 
     return TestClient(app)
 

@@ -152,6 +152,7 @@ activemq-data/
 # Environments
 .env
 .envrc
+services/identity-service/secrets/
 .venv
 env/
 venv/

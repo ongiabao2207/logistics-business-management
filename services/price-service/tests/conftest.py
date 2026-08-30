@@ -3,6 +3,7 @@ import os
 os.environ["PRICE_DATABASE_URL"] = "sqlite://"
 
 import pytest
+from fastapi import Request
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -10,6 +11,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base
 from app.db.session import get_db
+from app.core.auth import CurrentUser, get_current_user
 from app.main import app
 from app.models.price_model import PriceList, Service
 
@@ -42,6 +44,16 @@ def client():
             yield session
 
     app.dependency_overrides[get_db] = override_get_db
+    def override_current_user(request: Request) -> CurrentUser:
+        role = "ROLE_DIRECTOR" if request.url.path.endswith(("/approve", "/reject")) else "ROLE_SALE"
+        return CurrentUser(
+            account_id="test-user-1",
+            username="test_user",
+            role=role,
+            access_token="test-token",
+        )
+
+    app.dependency_overrides[get_current_user] = override_current_user
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

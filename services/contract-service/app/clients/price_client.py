@@ -32,9 +32,10 @@ class CacheClient(Protocol):
 
 
 class HttpPriceClient:
-    def __init__(self, base_url: str, timeout_seconds: float = 5) -> None:
+    def __init__(self, base_url: str, timeout_seconds: float = 5, access_token: str | None = None) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
+        self.access_token = access_token
 
     def get_service_price(self, service_id: int) -> ServicePriceInfo | None:
         try:
@@ -44,7 +45,8 @@ class HttpPriceClient:
 
         url = f"{self.base_url}/price-lists/effective/services/{service_id}"
         try:
-            response = httpx.get(url, timeout=self.timeout_seconds)
+            headers = {"Authorization": f"Bearer {self.access_token}"} if self.access_token else None
+            response = httpx.get(url, headers=headers, timeout=self.timeout_seconds)
         except httpx.HTTPError as exc:
             raise PriceClientError("price service request failed") from exc
 
@@ -153,12 +155,13 @@ class FakePriceClient:
         return self._services.get(service_id)
 
 
-def get_price_client() -> PriceClient:
+def get_price_client(access_token: str | None = None) -> PriceClient:
     settings = get_settings()
     if settings.price_client_mode == "http":
         http_client = HttpPriceClient(
             base_url=settings.price_service_url,
             timeout_seconds=settings.price_client_timeout_seconds,
+            access_token=access_token,
         )
         if settings.price_cache_enabled:
             try:
