@@ -1,6 +1,5 @@
 import {
   Bell,
-  BriefcaseBusiness,
   ClipboardCheck,
   CreditCard,
   Factory,
