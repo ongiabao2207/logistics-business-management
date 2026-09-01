@@ -31,8 +31,8 @@ export function ContractFilters({ customers, filters, onChange }) {
           </select>
         </label>
 
-        <fieldset className="contract-filter-card contract-date-card">
-          <legend>Thời gian</legend>
+        <div className="contract-filter-card contract-date-card" role="group" aria-label="Thời gian">
+          <span>Thời gian</span>
           <div className="contract-date-inputs">
             <label>
               <CalendarDays size={15} />
@@ -53,30 +53,25 @@ export function ContractFilters({ customers, filters, onChange }) {
               />
             </label>
           </div>
-        </fieldset>
+        </div>
 
-        <fieldset className="contract-filter-card contract-status-filter">
-          <legend>Trạng thái</legend>
+        <div className="contract-filter-card contract-status-filter" role="group" aria-label="Trạng thái">
+          <span>Trạng thái</span>
           <div className="contract-status-options">
-            <button
-              className={filters.status === "" ? "is-active" : ""}
-              type="button"
-              onClick={() => onChange({ status: "" })}
-            >
-              Tất cả
-            </button>
             {CONTRACT_STATUS_OPTIONS.map((status) => (
               <button
                 key={status}
                 className={filters.status === status ? "is-active" : ""}
                 type="button"
-                onClick={() => onChange({ status })}
+                onClick={() =>
+                  onChange({ status: filters.status === status ? "" : status })
+                }
               >
                 {status}
               </button>
             ))}
           </div>
-        </fieldset>
+        </div>
       </div>
     </section>
   );

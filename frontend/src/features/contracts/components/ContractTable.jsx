@@ -42,7 +42,6 @@ export function ContractTable({ contracts, onSelectContract }) {
                 </td>
                 <td>
                   <strong>{contract.customer_name}</strong>
-                  <span className="contract-muted">MST: -</span>
                 </td>
                 <td>{formatContractDate(contract.valid_from)}</td>
                 <td>{formatContractDate(contract.valid_to)}</td>

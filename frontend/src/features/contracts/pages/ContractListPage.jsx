@@ -23,11 +23,10 @@ const initialFilters = {
 
 function matchesDateRange(contract, from, to) {
   const validFrom = new Date(contract.valid_from).getTime();
-  const validTo = new Date(contract.valid_to).getTime();
   const rangeFrom = from ? new Date(from).getTime() : null;
   const rangeTo = to ? new Date(to).getTime() : null;
 
-  if (rangeFrom && validTo < rangeFrom) {
+  if (rangeFrom && validFrom < rangeFrom) {
     return false;
   }
 
@@ -77,7 +76,13 @@ export function ContractListPage() {
   );
 
   const filteredContracts = useMemo(
-    () => filterContracts(contracts, filters),
+    () =>
+      filterContracts(contracts, filters).toSorted((left, right) =>
+        left.contract_id.localeCompare(right.contract_id, undefined, {
+          numeric: true,
+          sensitivity: "base",
+        }),
+      ),
     [contracts, filters],
   );
   const totalPages = Math.max(1, Math.ceil(filteredContracts.length / PAGE_SIZE));

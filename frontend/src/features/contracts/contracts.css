@@ -63,25 +63,24 @@
 
 .contract-filter-grid {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) minmax(280px, 1fr) minmax(300px, 1fr);
+  grid-template-columns: minmax(240px, 0.9fr) minmax(280px, 0.9fr) minmax(300px, 0.9fr);
   gap: 20px;
   align-items: stretch;
+  max-width: 1280px;
 }
 
 .contract-filter-card {
   display: grid;
   align-content: start;
-  gap: 12px;
-  min-height: 142px;
+  gap: 14px;
+  min-height: 118px;
   border: 1px solid #d3d8e2;
   border-radius: 8px;
   background: #ffffff;
-  padding: 22px;
+  padding: 18px 22px;
 }
 
-.contract-filter-card > span,
-.contract-filter-card legend {
-  padding: 0;
+.contract-filter-card > span {
   color: #555967;
   font-size: 18px;
   font-weight: 800;
@@ -100,6 +99,15 @@
   background: #f6f6fb;
   color: #333947;
   padding: 0 12px;
+}
+
+.contract-filter-card select {
+  border-color: #526174;
+  border-width: 2px;
+  background: #ffffff;
+  box-shadow:
+    inset 0 0 0 1px rgb(82 97 116 / 12%),
+    0 1px 2px rgb(15 23 42 / 8%);
 }
 
 .contract-filter-card select,
@@ -129,7 +137,7 @@
 .contract-status-options {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 7px;
 }
 
 .contract-status-options button,
@@ -143,8 +151,9 @@
 }
 
 .contract-status-options button {
-  min-height: 34px;
-  padding: 0 16px;
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 13px;
 }
 
 .contract-status-options button.is-active,
