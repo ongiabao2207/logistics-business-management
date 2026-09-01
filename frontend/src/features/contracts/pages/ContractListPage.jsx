@@ -23,8 +23,16 @@ const initialFilters = {
 
 function matchesDateRange(contract, from, to) {
   const validFrom = new Date(contract.valid_from).getTime();
-  const rangeFrom = from ? new Date(from).getTime() : null;
-  const rangeTo = to ? new Date(to).getTime() : null;
+  const rangeFrom = from ? parseFilterDate(from) : null;
+  const rangeTo = to ? parseFilterDate(to) : null;
+
+  if (from && rangeFrom === null) {
+    return true;
+  }
+
+  if (to && rangeTo === null) {
+    return true;
+  }
 
   if (rangeFrom && validFrom < rangeFrom) {
     return false;
@@ -35,6 +43,33 @@ function matchesDateRange(contract, from, to) {
   }
 
   return true;
+}
+
+function parseFilterDate(value) {
+  const trimmedValue = value.trim();
+  const ddMmYyyyMatch = trimmedValue.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+
+  if (ddMmYyyyMatch) {
+    const [, day, month, year] = ddMmYyyyMatch;
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+
+    if (
+      date.getFullYear() === Number(year) &&
+      date.getMonth() === Number(month) - 1 &&
+      date.getDate() === Number(day)
+    ) {
+      return date.getTime();
+    }
+
+    return null;
+  }
+
+  const isoMatch = trimmedValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    return new Date(trimmedValue).getTime();
+  }
+
+  return null;
 }
 
 function filterContracts(contracts, filters) {

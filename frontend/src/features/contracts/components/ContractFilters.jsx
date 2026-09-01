@@ -2,6 +2,15 @@ import { CalendarDays, Search } from "lucide-react";
 
 import { CONTRACT_STATUS_OPTIONS } from "./contractDisplay";
 
+function formatDateInput(value) {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+  const day = digits.slice(0, 2);
+  const month = digits.slice(2, 4);
+  const year = digits.slice(4, 8);
+
+  return [day, month, year].filter(Boolean).join("/");
+}
+
 export function ContractFilters({ customers, filters, onChange }) {
   return (
     <section className="contract-filter-area" aria-label="Contract filters">
@@ -18,17 +27,19 @@ export function ContractFilters({ customers, filters, onChange }) {
       <div className="contract-filter-grid">
         <label className="contract-filter-card">
           <span>Khách hàng</span>
-          <select
-            value={filters.customer}
-            onChange={(event) => onChange({ customer: event.target.value })}
-          >
-            <option value="">Tất cả khách hàng</option>
-            {customers.map((customer) => (
-              <option key={customer} value={customer}>
-                {customer}
-              </option>
-            ))}
-          </select>
+          <span className="contract-select-wrap">
+            <select
+              value={filters.customer}
+              onChange={(event) => onChange({ customer: event.target.value })}
+            >
+              <option value="">Tất cả khách hàng</option>
+              {customers.map((customer) => (
+                <option key={customer} value={customer}>
+                  {customer}
+                </option>
+              ))}
+            </select>
+          </span>
         </label>
 
         <div className="contract-filter-card contract-date-card" role="group" aria-label="Thời gian">
@@ -37,18 +48,28 @@ export function ContractFilters({ customers, filters, onChange }) {
             <label>
               <CalendarDays size={15} />
               <input
-                type="date"
+                type="text"
+                inputMode="numeric"
                 value={filters.from}
-                onChange={(event) => onChange({ from: event.target.value })}
+                onChange={(event) =>
+                  onChange({ from: formatDateInput(event.target.value) })
+                }
+                placeholder="dd/mm/yyyy"
+                maxLength={10}
                 aria-label="Từ ngày"
               />
             </label>
             <label>
               <CalendarDays size={15} />
               <input
-                type="date"
+                type="text"
+                inputMode="numeric"
                 value={filters.to}
-                onChange={(event) => onChange({ to: event.target.value })}
+                onChange={(event) =>
+                  onChange({ to: formatDateInput(event.target.value) })
+                }
+                placeholder="dd/mm/yyyy"
+                maxLength={10}
                 aria-label="Đến ngày"
               />
             </label>
