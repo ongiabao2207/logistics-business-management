@@ -17,6 +17,7 @@ import { usePageTitle } from "../../../shared/hooks/usePageTitle.js";
 import { formatDate } from "../../../shared/utils/formatters.js";
 import { PaymentState } from "../components/PaymentState.jsx";
 import { PaymentStatus } from "../components/PaymentStatus.jsx";
+import { usePaymentContracts } from "../hooks/usePaymentContracts.js";
 import { usePayments } from "../hooks/usePayments.js";
 import { paymentStatusLabels } from "../types/index.js";
 
@@ -27,28 +28,44 @@ export function PaymentListPage() {
   const [keyword, setKeyword] = useState("");
 
   const status = params.get("status") ?? "";
+  const year = params.get("year") ?? "";
+  const month = params.get("month") ?? "";
 
   const {
     data: payments = [],
     isPending,
     error,
   } = usePayments();
+  const { getCustomerName } = usePaymentContracts();
+
+  const yearOptions = useMemo(() => {
+    const years = new Set(payments.map((item) => (
+      String(new Date(item.period_start).getFullYear())
+    )));
+    return [...years].sort((left, right) => Number(right) - Number(left));
+  }, [payments]);
 
   const rows = useMemo(() => {
     const normalizedKeyword = keyword.trim().toLowerCase();
 
-    return payments.filter((item) => {
+    return payments.map((item) => ({
+      ...item,
+      customer_name: getCustomerName(item.contract_id, item.customer_id),
+    })).filter((item) => {
       const matchesStatus = !status || item.status === status;
+      const itemDate = new Date(item.period_start);
+      const matchesYear = !year || String(itemDate.getFullYear()) === year;
+      const matchesMonth = !month || String(itemDate.getMonth() + 1) === month;
 
       const matchesKeyword =
         !normalizedKeyword ||
-        [item.id, item.customer_id, item.contract_id].some((value) =>
+        [item.id, item.customer_name, item.customer_id, item.contract_id].some((value) =>
           value.toLowerCase().includes(normalizedKeyword),
         );
 
-      return matchesStatus && matchesKeyword;
+      return matchesStatus && matchesYear && matchesMonth && matchesKeyword;
     });
-  }, [payments, keyword, status]);
+  }, [payments, keyword, year, month, status, getCustomerName]);
 
   function setStatus(value) {
     const nextParams = new URLSearchParams(params);
@@ -57,6 +74,18 @@ export function PaymentListPage() {
       nextParams.set("status", value);
     } else {
       nextParams.delete("status");
+    }
+
+    setParams(nextParams);
+  }
+
+  function setDateFilter(name, value) {
+    const nextParams = new URLSearchParams(params);
+
+    if (value) {
+      nextParams.set(name, value);
+    } else {
+      nextParams.delete(name);
     }
 
     setParams(nextParams);
@@ -144,10 +173,24 @@ export function PaymentListPage() {
         </label>
 
         <label className="pay-field">
-          <span>Kỳ thanh toán</span>
+          <span>Năm thanh toán</span>
 
-          <select defaultValue="">
-            <option value="">Tất cả các kỳ</option>
+          <select value={year} onChange={(event) => setDateFilter("year", event.target.value)}>
+            <option value="">Tất cả năm</option>
+            {yearOptions.map((value) => (
+              <option key={value} value={value}>{value}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="pay-field">
+          <span>Tháng thanh toán</span>
+
+          <select value={month} onChange={(event) => setDateFilter("month", event.target.value)}>
+            <option value="">Tất cả tháng</option>
+            {Array.from({ length: 12 }, (_, index) => index + 1).map((value) => (
+              <option key={value} value={value}>Tháng {value}</option>
+            ))}
           </select>
         </label>
 
@@ -228,7 +271,7 @@ export function PaymentListPage() {
                     </td>
 
                     <td>
-                      <strong>{item.customer_id}</strong>
+                      <strong>{item.customer_name}</strong>
                     </td>
 
                     <td>{item.contract_id}</td>

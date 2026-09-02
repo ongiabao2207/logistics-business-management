@@ -14,6 +14,7 @@ import { PaymentLines } from "../components/PaymentLines.jsx";
 import { PaymentState } from "../components/PaymentState.jsx";
 import { PaymentStatus } from "../components/PaymentStatus.jsx";
 import { PaymentTotals } from "../components/PaymentTotals.jsx";
+import { usePaymentContracts } from "../hooks/usePaymentContracts.js";
 import { usePayment, useSubmitPayment } from "../hooks/usePayments.js";
 
 const workflowByStatus = {
@@ -83,6 +84,7 @@ export function PaymentApprovalPage() {
   const navigate = useNavigate();
   const { data: payment, isPending, error } = usePayment(paymentId);
   const submit = useSubmitPayment();
+  const { getCustomerName } = usePaymentContracts();
 
   if (isPending) return <PaymentState title="Đang tải chi tiết..." />;
   if (error) return <PaymentState title="Không thể tải bảng" description={error.message} />;
@@ -91,13 +93,14 @@ export function PaymentApprovalPage() {
     month: "2-digit",
     year: "numeric",
   });
+  const customerName = getCustomerName(payment.contract_id, payment.customer_id);
 
   return <>
     <Link className="pay-back" to="/payments"><ArrowLeft size={16} />Quay lại danh sách</Link>
     <div className="pay-page-heading approval-page-heading">
       <div>
         <h1>{payment.id}</h1>
-        <p>{payment.customer_id} · {payment.contract_id} · Kỳ {period}</p>
+        <p>{customerName} · {payment.contract_id} · Kỳ {period}</p>
       </div>
       <div>
         <PaymentStatus status={payment.status} />
@@ -116,7 +119,7 @@ export function PaymentApprovalPage() {
         <div className="approval-subgrid">
           <article className="pay-panel">
             <h3>Thông tin đối tác</h3>
-            <p>Khách hàng<br/><strong>{payment.customer_id}</strong></p>
+            <p>Khách hàng<br/><strong>{customerName}</strong></p>
             <p>Số hợp đồng<br/><strong className="blue-text">{payment.contract_id}</strong></p>
           </article>
           <article className="pay-panel">

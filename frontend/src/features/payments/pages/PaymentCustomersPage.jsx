@@ -1,14 +1,112 @@
-import { Filter, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { RefreshCw } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { PaymentBreadcrumb } from "../components/PaymentBreadcrumb.jsx";
 
-const candidates = [
-  { id: "customer-001", name: "Công ty TNHH Giải pháp Công nghệ xanh", contract: "ACTIVE", price: "APPROVED", production: "CONFIRMED", ready: true },
-  { id: "customer-002", name: "Tập đoàn Bán lẻ Global Retail", contract: "ACTIVE", price: "APPROVED", production: "CONFIRMED", ready: true },
-  { id: "customer-003", name: "Logistics Ánh Dương JSC", contract: "ACTIVE", price: "APPROVED", production: "PENDING", ready: false },
-  { id: "customer-004", name: "Xây dựng An Phát", contract: "EXPIRED", price: "APPROVED", production: "CONFIRMED", ready: false },
-  { id: "customer-005", name: "Dệt may Phong Phú Co.", contract: "ACTIVE", price: "APPROVED", production: "CONFIRMED", ready: true },
-];
-export function PaymentCustomersPage() { const { periodKey } = useParams(); const [selected, setSelected] = useState(["customer-001", "customer-002", "customer-005"]); const toggle = (id) => setSelected((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]); return <><PaymentBreadcrumb items={[{ label: "Lập bảng thanh toán", to: "/payments/create" }, { label: "Chọn khách hàng" }]} /><div className="pay-customer-heading"><div><h2>Chuẩn bị dữ liệu lập bảng thanh toán kỳ {periodKey}</h2></div><div><button className="pay-button soft"><Filter size={16} />Bộ lọc nâng cao</button><button className="pay-button primary"><RefreshCw size={16} />Đồng bộ dữ liệu</button></div></div><section className="pay-metric-grid"><article><small>Tổng số khách hàng</small><strong>1,248</strong></article><article><small>Đủ điều kiện lập bảng</small><strong className="blue">1,120</strong></article><article><small>Chưa đủ dữ liệu</small><strong className="red">128</strong></article><article><small>Tiến độ kỳ</small><strong>89%</strong><div><span style={{ width: "89%" }} /></div></article></section><section className="pay-panel customer-table"><div className="customer-table-top"><label><input type="checkbox" />Chọn tất cả</label><strong>Hiển thị: 20 khách hàng⌄</strong></div><div className="pay-table-scroll"><table className="pay-table"><thead><tr><th></th><th>Mã khách hàng</th><th>Tên khách hàng</th><th>Hợp đồng</th><th>Bảng giá</th><th>Sản lượng</th><th>Thao tác</th></tr></thead><tbody>{candidates.map((item) => <tr key={item.id} className={!item.ready ? "disabled" : ""}><td><input type="checkbox" checked={selected.includes(item.id)} disabled={!item.ready} onChange={() => toggle(item.id)} /></td><td><strong>{item.id.toUpperCase()}</strong></td><td><strong>{item.name}</strong></td><td><span className={`mini-status ${item.contract === "ACTIVE" ? "ok" : "bad"}`}>{item.contract === "ACTIVE" ? "Hoạt động" : "Hết hạn"}</span></td><td><span className="mini-status ok">Đã duyệt</span></td><td><span className={`mini-status ${item.production === "CONFIRMED" ? "ok" : "warn"}`}>{item.production === "CONFIRMED" ? "Xác nhận" : "Chưa chốt"}</span></td><td><Link className={`pay-button small ${item.ready ? "primary" : "disabled"}`} to={item.ready ? `/payments/new?customer_id=${item.id}&period=${periodKey}` : "#"}>Lập bảng</Link></td></tr>)}</tbody></table></div></section><div className="pay-batch-bar"><span className="batch-count">{selected.length}</span><p>Đã chọn {selected.length} khách hàng sẵn sàng</p><button>Hủy chọn</button><Link className="pay-button light" to={`/payments/new?customer_id=${selected[0]}&period=${periodKey}`}>Lập bảng hàng loạt</Link></div><p className="pay-demo-note">Danh sách điều kiện là dữ liệu minh họa giao diện cho đến khi Customer/Contract readiness API được tích hợp.</p></>;
+import { PaymentBreadcrumb } from "../components/PaymentBreadcrumb.jsx";
+import { PaymentState } from "../components/PaymentState.jsx";
+import { usePaymentContracts } from "../hooks/usePaymentContracts.js";
+
+export function PaymentCustomersPage() {
+  const { periodKey } = useParams();
+  const [selected, setSelected] = useState([]);
+  const {
+    contracts,
+    error,
+    getCustomerId,
+    isPending,
+    refetch,
+  } = usePaymentContracts();
+
+  const candidates = useMemo(() => contracts.map((contract) => {
+    const customerId = getCustomerId(contract);
+    const ready = contract.status === "ACTIVE" && Boolean(customerId);
+    return {
+      contractId: contract.contract_id,
+      customerId,
+      customerName: contract.customer_name,
+      status: contract.status,
+      validFrom: contract.valid_from,
+      validTo: contract.valid_to,
+      ready,
+    };
+  }), [contracts, getCustomerId]);
+
+  const readyCandidates = candidates.filter((item) => item.ready);
+  const selectedCandidate = candidates.find((item) => (
+    `${item.contractId}:${item.customerId}` === selected[0]
+  ));
+
+  function candidateKey(item) {
+    return `${item.contractId}:${item.customerId}`;
+  }
+
+  function toggle(item) {
+    const key = candidateKey(item);
+    setSelected((current) => current.includes(key)
+      ? current.filter((value) => value !== key)
+      : [...current, key]);
+  }
+
+  function toggleAll() {
+    setSelected((current) => current.length === readyCandidates.length
+      ? []
+      : readyCandidates.map(candidateKey));
+  }
+
+  return <>
+    <PaymentBreadcrumb items={[
+      { label: "Lập bảng thanh toán", to: "/payments/create" },
+      { label: "Chọn khách hàng" },
+    ]} />
+    <div className="pay-customer-heading">
+      <div><h2>Chuẩn bị dữ liệu lập bảng thanh toán kỳ {periodKey}</h2></div>
+      <div>
+        <button className="pay-button primary" type="button" onClick={() => refetch()}><RefreshCw size={16} />Đồng bộ hợp đồng</button>
+      </div>
+    </div>
+
+    <section className="pay-metric-grid">
+      <article><small>Tổng số hợp đồng</small><strong>{candidates.length}</strong></article>
+      <article><small>Hợp đồng đang hiệu lực</small><strong className="blue">{readyCandidates.length}</strong></article>
+      <article><small>Chưa đủ dữ liệu</small><strong className="red">{candidates.length - readyCandidates.length}</strong></article>
+      <article><small>Nguồn dữ liệu</small><strong>Contract Service</strong></article>
+    </section>
+
+    {isPending ? <PaymentState title="Đang tải hợp đồng..." /> : null}
+    {error ? <PaymentState title="Không thể tải Contract Service" description={error.message} /> : null}
+    {!isPending && !error && !candidates.length ? <PaymentState title="Chưa có hợp đồng" description="Contract Service chưa có dữ liệu hợp đồng." /> : null}
+
+    {candidates.length ? <section className="pay-panel customer-table">
+      <div className="customer-table-top">
+        <label><input type="checkbox" checked={selected.length === readyCandidates.length && readyCandidates.length > 0} onChange={toggleAll} />Chọn tất cả hợp đồng đủ điều kiện</label>
+        <strong>Hiển thị: {candidates.length} hợp đồng</strong>
+      </div>
+      <div className="pay-table-scroll">
+        <table className="pay-table">
+          <thead><tr><th></th><th>Khách hàng</th><th>Mã hợp đồng</th><th>Hiệu lực</th><th>Trạng thái</th><th>Bảng giá / Sản lượng</th><th>Thao tác</th></tr></thead>
+          <tbody>{candidates.map((item) => {
+            const key = candidateKey(item);
+            const createUrl = `/payments/new?customer_id=${item.customerId}&contract_id=${item.contractId}&period=${periodKey}`;
+            return <tr key={key} className={!item.ready ? "disabled" : ""}>
+              <td><input type="checkbox" checked={selected.includes(key)} disabled={!item.ready} onChange={() => toggle(item)} /></td>
+              <td><strong>{item.customerName}</strong></td>
+              <td><strong className="blue-text">{item.contractId}</strong></td>
+              <td>{item.validFrom} – {item.validTo}</td>
+              <td><span className={`mini-status ${item.status === "ACTIVE" ? "ok" : "bad"}`}>{item.status === "ACTIVE" ? "Đang hiệu lực" : item.status}</span></td>
+              <td><span className="mini-status warn">Kiểm tra khi lập bảng</span></td>
+              <td><Link className={`pay-button small ${item.ready ? "primary" : "disabled"}`} to={item.ready ? createUrl : "#"}>Lập bảng</Link></td>
+            </tr>;
+          })}</tbody>
+        </table>
+      </div>
+    </section> : null}
+
+    {selected.length ? <div className="pay-batch-bar">
+      <span className="batch-count">{selected.length}</span>
+      <p>Đã chọn {selected.length} hợp đồng</p>
+      <button type="button" onClick={() => setSelected([])}>Hủy chọn</button>
+      {selectedCandidate ? <Link className="pay-button light" to={`/payments/new?customer_id=${selectedCandidate.customerId}&contract_id=${selectedCandidate.contractId}&period=${periodKey}`}>Lập bảng đã chọn</Link> : null}
+    </div> : null}
+    <p className="pay-demo-note">Tên khách hàng, mã hợp đồng, trạng thái và thời hạn được lấy từ Contract Service. Mã khách hàng tạm đối chiếu từ dữ liệu mẫu cho đến khi Customer Service hoàn chỉnh.</p>
+  </>;
 }

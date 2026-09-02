@@ -1,15 +1,127 @@
-import { CalendarDays, FileText, Pencil, PlusCircle, Save, Send, UserRound } from "lucide-react";
+import {
+  CalendarDays,
+  FileText,
+  Pencil,
+  PlusCircle,
+  Save,
+  Send,
+  UserRound,
+} from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+
 import { PaymentBreadcrumb } from "../components/PaymentBreadcrumb.jsx";
 import { PaymentLines } from "../components/PaymentLines.jsx";
 import { PaymentTotals } from "../components/PaymentTotals.jsx";
-import { useCreatePayment, usePreviewPayment, useSubmitPayment } from "../hooks/usePayments.js";
+import { usePaymentContracts } from "../hooks/usePaymentContracts.js";
+import {
+  useCreatePayment,
+  usePreviewPayment,
+  useSubmitPayment,
+} from "../hooks/usePayments.js";
 
-function datesFromPeriod(period) { if (!period) return { period_start: "", period_end: "" }; const [year, month] = period.split("-").map(Number); return { period_start: `${year}-${String(month).padStart(2, "0")}-01`, period_end: `${year}-${String(month).padStart(2, "0")}-${new Date(year, month, 0).getDate()}` }; }
+function datesFromPeriod(period) {
+  if (!period) return { period_start: "", period_end: "" };
+  const [year, month] = period.split("-").map(Number);
+  return {
+    period_start: `${year}-${String(month).padStart(2, "0")}-01`,
+    period_end: `${year}-${String(month).padStart(2, "0")}-${new Date(year, month, 0).getDate()}`,
+  };
+}
+
 export function PaymentCreatePage() {
-  const [params] = useSearchParams(); const navigate = useNavigate(); const periodDates = datesFromPeriod(params.get("period")); const [form, setForm] = useState({ customer_id: params.get("customer_id") ?? "", contract_id: params.get("contract_id") ?? "", ...periodDates, tax_rate: "0.10" }); const preview = usePreviewPayment(); const create = useCreatePayment(); const submit = useSubmitPayment(); const payload = { ...form, tax_rate: Number(form.tax_rate) }; const error = preview.error ?? create.error ?? submit.error;
-  const change = (event) => setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
-  const save = (andSubmit) => create.mutate(payload, { onSuccess(payment) { if (andSubmit) submit.mutate(payment.id, { onSuccess: () => navigate(`/payments/${payment.id}/approval`) }); else navigate(`/payments/${payment.id}/edit`); } });
-  return <><PaymentBreadcrumb items={[{ label: "Lập mới" }]} /><h2 className="pay-page-title">Lập bảng thanh toán chi tiết</h2><section className="pay-info-cards"><article><span><UserRound /></span><div><small>Khách hàng</small><input name="customer_id" value={form.customer_id} onChange={change} placeholder="customer-001" /></div></article><article><span><CalendarDays /></span><div><small>Kỳ thanh toán</small><div className="date-pair"><input type="date" name="period_start" value={form.period_start} onChange={change} /><input type="date" name="period_end" value={form.period_end} onChange={change} /></div></div></article><article><span><FileText /></span><div><small>Hợp đồng gốc</small><input name="contract_id" value={form.contract_id} onChange={change} placeholder="contract-001" /></div></article></section><div className="pay-preview-action"><button className="pay-button outline" onClick={() => preview.mutate(payload)}><Pencil size={16} />{preview.isPending ? "Đang lấy dữ liệu..." : "Tính bảng thanh toán"}</button></div>{error ? <div className="pay-alert error">{error.message}</div> : null}{preview.data ? <section className="pay-panel create-detail"><header><div><button className="pay-button outline"><Pencil size={15} />Điều chỉnh bảng thanh toán</button><button className="pay-text-action"><PlusCircle size={15} />Thêm hạng mục</button></div><strong>Chi tiết các hạng mục thanh toán</strong></header><PaymentLines lines={preview.data.lines} /><PaymentTotals payment={preview.data} /></section> : <div className="pay-empty-preview"><FileText size={30} /><strong>Chưa có dữ liệu xem trước</strong><p>Nhập khách hàng, hợp đồng và kỳ rồi chọn “Tính bảng thanh toán”.</p></div>}{preview.data ? <div className="pay-bottom-bar"><span>ⓘ Dữ liệu được cập nhật tự động từ hệ thống đo đếm.</span><div><Link className="pay-button outline" to="/payments">Hủy</Link><button className="pay-button outline" onClick={() => save(false)}><Save size={16} />Lưu nháp</button><button className="pay-button primary" onClick={() => save(true)}><Send size={16} />Lưu và gửi phê duyệt</button></div></div> : null}</>;
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const periodDates = datesFromPeriod(params.get("period"));
+  const [form, setForm] = useState({
+    customer_id: params.get("customer_id") ?? "",
+    contract_id: params.get("contract_id") ?? "",
+    ...periodDates,
+    tax_rate: "0.10",
+  });
+  const { getCustomerName } = usePaymentContracts();
+  const preview = usePreviewPayment();
+  const create = useCreatePayment();
+  const submit = useSubmitPayment();
+  const customerName = getCustomerName(form.contract_id, form.customer_id);
+  const payload = { ...form, tax_rate: Number(form.tax_rate) };
+  const error = preview.error ?? create.error ?? submit.error;
+
+  const change = (event) => setForm((current) => ({
+    ...current,
+    [event.target.name]: event.target.value,
+  }));
+
+  const save = (andSubmit) => create.mutate(payload, {
+    onSuccess(payment) {
+      if (andSubmit) {
+        submit.mutate(payment.id, {
+          onSuccess: () => navigate(`/payments/${payment.id}/approval`),
+        });
+      } else {
+        navigate(`/payments/${payment.id}/edit`);
+      }
+    },
+  });
+
+  return <>
+    <PaymentBreadcrumb items={[{ label: "Lập mới" }]} />
+    <h2 className="pay-page-title">Lập bảng thanh toán chi tiết</h2>
+    <section className="pay-info-cards">
+      <article>
+        <span><UserRound /></span>
+        <div>
+          <small>Khách hàng</small>
+          <input value={customerName} readOnly />
+        </div>
+      </article>
+      <article>
+        <span><CalendarDays /></span>
+        <div>
+          <small>Kỳ thanh toán</small>
+          <div className="date-pair">
+            <input type="date" name="period_start" value={form.period_start} onChange={change} />
+            <input type="date" name="period_end" value={form.period_end} onChange={change} />
+          </div>
+        </div>
+      </article>
+      <article>
+        <span><FileText /></span>
+        <div>
+          <small>Hợp đồng gốc</small>
+          <input value={form.contract_id} readOnly />
+        </div>
+      </article>
+    </section>
+    <div className="pay-preview-action">
+      <button className="pay-button outline" type="button" onClick={() => preview.mutate(payload)} disabled={!form.customer_id || !form.contract_id}>
+        <Pencil size={16} />
+        {preview.isPending ? "Đang lấy dữ liệu..." : "Tính bảng thanh toán"}
+      </button>
+    </div>
+    {error ? <div className="pay-alert error">{error.message}</div> : null}
+    {preview.data ? <section className="pay-panel create-detail">
+      <header>
+        <div>
+          <button className="pay-button outline" type="button"><Pencil size={15} />Điều chỉnh bảng thanh toán</button>
+          <button className="pay-text-action" type="button"><PlusCircle size={15} />Thêm hạng mục</button>
+        </div>
+        <strong>Chi tiết các hạng mục thanh toán</strong>
+      </header>
+      <PaymentLines lines={preview.data.lines} />
+      <PaymentTotals payment={preview.data} />
+    </section> : <div className="pay-empty-preview">
+      <FileText size={30} />
+      <strong>Chưa có dữ liệu xem trước</strong>
+      <p>Chọn khách hàng, hợp đồng và kỳ rồi bấm “Tính bảng thanh toán”.</p>
+    </div>}
+    {preview.data ? <div className="pay-bottom-bar">
+      <span>ⓘ Dữ liệu được tổng hợp từ hợp đồng, bảng giá và sản lượng.</span>
+      <div>
+        <Link className="pay-button outline" to="/payments">Hủy</Link>
+        <button className="pay-button outline" type="button" onClick={() => save(false)}><Save size={16} />Lưu nháp</button>
+        <button className="pay-button primary" type="button" onClick={() => save(true)}><Send size={16} />Lưu và gửi phê duyệt</button>
+      </div>
+    </div> : null}
+  </>;
 }
