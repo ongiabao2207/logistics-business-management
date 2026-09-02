@@ -1,0 +1,343 @@
+import React, { useState, useEffect } from "react";
+import { X, Lock, Save, History, Plus, Trash2, Edit2, CheckCircle2, ShieldAlert } from "lucide-react";
+import { SERVICE_CATALOG } from "../constants/productionConstants";
+import { productionApi } from "../api/productionApi";
+
+export function ProductionPeriodDetailModal({ isOpen, periodId, onClose, onRefreshList, onOpenLockModal }) {
+  const [period, setPeriod] = useState(null);
+  const [details, setDetails] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && periodId) {
+      loadDetail();
+    }
+  }, [isOpen, periodId]);
+
+  const loadDetail = async () => {
+    setIsLoading(true);
+    try {
+      const data = await productionApi.getProductionPeriod(periodId);
+      setPeriod(data);
+      setDetails(data.details || []);
+    } catch (err) {
+      alert(`Không thể tải thông tin kỳ sản lượng: ${err.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  const isLocked = period?.status === "LOCKED";
+
+  const handleQuantityChange = (index, newQty) => {
+    if (isLocked) return;
+    const updated = [...details];
+    updated[index].quantity = newQty;
+    setDetails(updated);
+  };
+
+  const handleNotesChange = (index, newNotes) => {
+    if (isLocked) return;
+    const updated = [...details];
+    updated[index].notes = newNotes;
+    setDetails(updated);
+  };
+
+  const handleAddServiceItem = (serviceCode, unit) => {
+    if (isLocked) return;
+    const srv = SERVICE_CATALOG.find((s) => s.code === serviceCode);
+    setDetails([
+      ...details,
+      {
+        id: Date.now(),
+        service_code: serviceCode,
+        recorded_date: period?.from_date || new Date().toISOString().split("T")[0],
+        quantity: 1,
+        unit: unit || srv?.unit || "Cont",
+        notes: "Bổ sung đối soát",
+      },
+    ]);
+  };
+
+  const handleRemoveItem = (idToRemove) => {
+    if (isLocked) return;
+    setDetails(details.filter((d) => d.id !== idToRemove));
+  };
+
+  const handleSaveDetails = async () => {
+    if (isLocked) return;
+    setIsSaving(true);
+    setSaveSuccess(false);
+    try {
+      const payload = {
+        details: details.map((d) => ({
+          service_code: d.service_code,
+          recorded_date: d.recorded_date,
+          quantity: Number(d.quantity),
+          unit: d.unit,
+          notes: d.notes,
+        })),
+      };
+      await productionApi.replaceProductionDetails(periodId, payload);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+      await loadDetail();
+      if (onRefreshList) onRefreshList();
+    } catch (err) {
+      alert(`Lưu thất bại: ${err.message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Group details by service_code
+  const groupedDetails = SERVICE_CATALOG.map((srv) => {
+    const items = details.filter((d) => d.service_code === srv.code);
+    const subtotal = items.reduce((acc, item) => acc + Number(item.quantity || 0), 0);
+    return {
+      service: srv,
+      items,
+      subtotal,
+    };
+  }).filter((group) => group.items.length > 0 || !isLocked);
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content" style={{ maxWidth: "1050px" }}>
+        {/* Header */}
+        <div className="modal-header">
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
+              <h2 style={{ fontSize: "20px" }}>Đối soát Chi tiết Sản lượng</h2>
+              {isLocked ? (
+                <span className="badge-status locked">
+                  <Lock size={12} /> Đã khóa (Locked)
+                </span>
+              ) : (
+                <span className="badge-status draft">Soạn thảo (Draft)</span>
+              )}
+            </div>
+            {period && (
+              <p>
+                Mã kỳ: <strong>SL-{period.id}</strong> | Khách hàng: <strong>{period.customer_name || period.customer_id}</strong> | Hợp đồng: <strong>{period.contract_id}</strong>
+              </p>
+            )}
+          </div>
+          <button className="btn-close" type="button" onClick={onClose}>
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="modal-body">
+          {isLoading ? (
+            <div style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>Đang tải dữ liệu sản lượng...</div>
+          ) : (
+            <div className="reconcile-layout">
+              {/* Audit Sidebar */}
+              <div className="audit-sidebar">
+                <h4>
+                  <History size={16} />
+                  Nhật ký truy vết
+                </h4>
+                <div className="audit-timeline">
+                  {isLocked && (
+                    <div className="audit-timeline-item">
+                      <div className="audit-icon-dot active">
+                        <Lock size={12} />
+                      </div>
+                      <div className="audit-info">
+                        <strong>Khóa kỳ sản lượng</strong>
+                        <span>Bởi {period.locked_by || "Lê Minh Tuấn"}</span>
+                        <time>{new Date(period.locked_at || period.updated_at).toLocaleString("vi-VN")}</time>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="audit-timeline-item">
+                    <div className="audit-icon-dot">
+                      <Edit2 size={12} />
+                    </div>
+                    <div className="audit-info">
+                      <strong>Cập nhật số liệu đối soát</strong>
+                      <span>Bởi Nguyễn Hoàng Uyển Như</span>
+                      <time>{new Date(period?.updated_at || Date.now()).toLocaleString("vi-VN")}</time>
+                    </div>
+                  </div>
+
+                  <div className="audit-timeline-item">
+                    <div className="audit-icon-dot">
+                      <Plus size={12} />
+                    </div>
+                    <div className="audit-info">
+                      <strong>Tạo bản ghi kỳ sản lượng</strong>
+                      <span>Bởi Nhân viên Khai thác</span>
+                      <time>{new Date(period?.created_at || Date.now()).toLocaleString("vi-VN")}</time>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: "24px", padding: "12px", background: "#ffffff", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                  <h5 style={{ margin: "0 0 6px", fontSize: "12px", color: "#0f766e", fontWeight: "700" }}>THÔNG TIN HỖ TRỢ</h5>
+                  <p style={{ margin: 0, fontSize: "11.5px", color: "#64748b", lineHeight: "1.4" }}>
+                    Hãy đảm bảo tất cả số liệu đã được đối chiếu với báo cáo vận hành hàng tuần trước khi thực hiện khóa kỳ.
+                  </p>
+                </div>
+              </div>
+
+              {/* Main Content Area */}
+              <div>
+                {saveSuccess && (
+                  <div className="alert-box success" style={{ padding: "10px 14px", marginBottom: "16px" }}>
+                    <CheckCircle2 size={18} className="alert-icon" />
+                    <div className="alert-body">
+                      <p style={{ fontWeight: "600" }}>Đã lưu thông tin đối soát thành công!</p>
+                    </div>
+                  </div>
+                )}
+
+                {isLocked && (
+                  <div className="alert-box warning" style={{ padding: "10px 14px", marginBottom: "16px" }}>
+                    <ShieldAlert size={18} className="alert-icon" />
+                    <div className="alert-body">
+                      <p style={{ fontWeight: "600" }}>Kỳ sản lượng đã được khóa (Locked). Toàn bộ số liệu đã cố định và không thể chỉnh sửa.</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Grouped Service Tables */}
+                {groupedDetails.map((group) => (
+                  <div key={group.service.code} className="service-group-block">
+                    <div className="service-group-title">{group.service.name}</div>
+                    <table className="record-table">
+                      <thead>
+                        <tr>
+                          <th style={{ width: "20%" }}>Ngày cập nhật</th>
+                          <th style={{ width: "35%" }}>Nội dung / Ghi chú</th>
+                          <th style={{ width: "15%" }}>Đơn vị</th>
+                          <th style={{ width: "20%" }}>Số lượng</th>
+                          {!isLocked && <th style={{ width: "10%", textAlign: "center" }}>Xóa</th>}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {group.items.length === 0 ? (
+                          <tr>
+                            <td colSpan={isLocked ? 4 : 5} style={{ textAlign: "center", color: "#94a3b8", fontSize: "13px", padding: "12px" }}>
+                              Chưa phát sinh sản lượng cho dịch vụ này
+                            </td>
+                          </tr>
+                        ) : (
+                          group.items.map((item) => {
+                            const globalIndex = details.findIndex((d) => d.id === item.id);
+                            return (
+                              <tr key={item.id}>
+                                <td>{item.recorded_date}</td>
+                                <td>
+                                  {isLocked ? (
+                                    <span>{item.notes || "-"}</span>
+                                  ) : (
+                                    <input
+                                      className="form-control"
+                                      type="text"
+                                      value={item.notes || ""}
+                                      onChange={(e) => handleNotesChange(globalIndex, e.target.value)}
+                                    />
+                                  )}
+                                </td>
+                                <td>
+                                  <span style={{ fontWeight: "600", color: "#475569" }}>{item.unit}</span>
+                                </td>
+                                <td>
+                                  {isLocked ? (
+                                    <strong style={{ fontSize: "14px", color: "#0f172a" }}>{item.quantity}</strong>
+                                  ) : (
+                                    <input
+                                      className="form-control"
+                                      type="number"
+                                      step="any"
+                                      value={item.quantity}
+                                      onChange={(e) => handleQuantityChange(globalIndex, e.target.value)}
+                                      style={{ fontWeight: "700", width: "100px" }}
+                                    />
+                                  )}
+                                </td>
+                                {!isLocked && (
+                                  <td style={{ textAlign: "center" }}>
+                                    <button
+                                      type="button"
+                                      className="btn-action danger"
+                                      style={{ padding: "4px 8px" }}
+                                      onClick={() => handleRemoveItem(item.id)}
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </td>
+                                )}
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+
+                    <div className="service-group-summary">
+                      <span>TỔNG CỘNG ({group.service.name}):</span>
+                      <span>
+                        {group.subtotal} {group.service.unit}
+                      </span>
+                    </div>
+
+                    {!isLocked && (
+                      <div style={{ padding: "8px 12px", background: "#ffffff" }}>
+                        <button
+                          type="button"
+                          className="btn-action secondary"
+                          style={{ fontSize: "12px", padding: "4px 10px" }}
+                          onClick={() => handleAddServiceItem(group.service.code, group.service.unit)}
+                        >
+                          <Plus size={12} /> Thêm sản lượng {group.service.name}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="modal-footer">
+          <button className="btn-action secondary" type="button" onClick={onClose}>
+            Quay lại
+          </button>
+
+          {!isLocked && (
+            <>
+              <button className="btn-action primary" type="button" onClick={handleSaveDetails} disabled={isSaving}>
+                <Save size={14} />
+                {isSaving ? "Đang lưu..." : "Lưu thay đổi"}
+              </button>
+
+              <button
+                className="btn-action lock"
+                type="button"
+                onClick={() => {
+                  onClose();
+                  if (onOpenLockModal) onOpenLockModal(period);
+                }}
+              >
+                <Lock size={14} />
+                Khóa kỳ sản lượng
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
