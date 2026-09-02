@@ -53,6 +53,7 @@ def test_create_list_and_deactivate_service(client):
     assert updated_list.json()[0]["is_active"] is False
 
 
+
 def test_service_active_status_is_generated_by_system(client):
     response = client.post(
         "/api/v1/services",
@@ -227,7 +228,7 @@ def test_approve_future_price_list_keeps_it_approved(client, service_factory):
     assert response.json()["status"] == "APPROVED"
 
 
-def test_patch_rejected_price_list_returns_it_to_draft(client, service_factory):
+def test_rejected_price_list_can_be_revised_then_resubmitted(client, service_factory):
     service = service_factory()
     price_list = create_price_list(client, service.id)
     assert client.post(f"/api/v1/price-lists/{price_list['id']}/submit").status_code == 200
@@ -243,6 +244,10 @@ def test_patch_rejected_price_list_returns_it_to_draft(client, service_factory):
     assert revised.status_code == 200
     assert revised.json()["status"] == "DRAFT"
     assert revised.json()["description"] == "Bang gia da chinh sua sau khi tu choi"
+
+    resubmitted = client.post(f"/api/v1/price-lists/{price_list['id']}/submit")
+    assert resubmitted.status_code == 200
+    assert resubmitted.json()["status"] == "SUBMITTED"
 
 
 def test_new_effective_price_list_supersedes_old_one(

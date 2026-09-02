@@ -2,7 +2,6 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy.orm import Session
 
-from app.clients.approvals import ApprovalClient
 from app.clients.contracts import ContractClient
 from app.clients.prices import PriceClient
 from app.clients.production import ProductionClient
@@ -43,14 +42,12 @@ class PaymentService:
         contracts: ContractClient,
         production: ProductionClient,
         prices: PriceClient,
-        approvals: ApprovalClient,
         events: EventPublisher,
     ):
         self.crud = crud
         self.contracts = contracts
         self.production = production
         self.prices = prices
-        self.approvals = approvals
         self.events = events
 
     def preview(
@@ -563,22 +560,17 @@ class PaymentService:
                 422,
             )
 
-        approval_id = self.approvals.create_workflow(
-            document_id=payment.id,
-            document_type="PAYMENT",
-        )
-
         submitted = self.crud.submit(
             db=db,
             payment=payment,
-            approval_instance_id=approval_id,
+            approval_instance_id=None,
         )
 
         self.events.publish(
             "PaymentSubmitted",
             {
                 "payment_id": submitted.id,
-                "approval_instance_id": approval_id,
+                "approval_instance_id": None,
                 "recipient_role": "ROLE_DIRECTOR",
                 "title": "Hồ sơ thanh toán chờ phê duyệt",
                 "content": f"Hồ sơ thanh toán {submitted.id} đang chờ phê duyệt.",
@@ -588,6 +580,15 @@ class PaymentService:
         )
 
         return submitted
+
+    def review(self, db: Session, payment_id: str, decision: str) -> Payment:
+        payment = self.get(db, payment_id)
+        if payment.status != PaymentStatus.PENDING_APPROVAL:
+            raise PaymentError("Only pending payments can be reviewed", 409)
+        payment.status = PaymentStatus.APPROVED if decision == "APPROVE" else PaymentStatus.REJECTED
+        db.commit()
+        db.refresh(payment)
+        return payment
 
     def adjust(
         self,
@@ -600,10 +601,12 @@ class PaymentService:
             payment_id=payment_id,
         )
 
-        if payment.status != PaymentStatus.REVISION_REQUESTED:
+        if payment.status not in {
+            PaymentStatus.REJECTED,
+            PaymentStatus.REVISION_REQUESTED,
+        }:
             raise PaymentError(
-                "Payment can only be adjusted after Approval Service "
-                "requests a revision",
+                "Payment can only be adjusted after rejection or a revision request",
                 409,
             )
 
@@ -613,20 +616,6 @@ class PaymentService:
         ):
             raise PaymentError(
                 "This approval revision request has already been applied",
-                409,
-            )
-
-        try:
-            revision_request = self.approvals.get_revision_request(
-                revision_request_id=data.revision_request_id,
-                document_id=payment.id,
-            )
-        except LookupError as exc:
-            raise PaymentError(str(exc), 422) from exc
-
-        if revision_request.status != "OPEN":
-            raise PaymentError(
-                "Approval revision request is no longer open",
                 409,
             )
 

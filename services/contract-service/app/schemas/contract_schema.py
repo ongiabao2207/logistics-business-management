@@ -19,7 +19,11 @@ class ContractCreate(BaseModel):
 
 
 class ContractStatusUpdate(BaseModel):
-    status: Literal["DRAFT", "SUBMITTED", "ACTIVE", "EXPIRED"]
+    status: Literal["DRAFT", "SUBMITTED", "APPROVED", "REJECTED", "ACTIVE", "EXPIRED"]
+
+
+class ContractReview(BaseModel):
+    decision: Literal["APPROVE", "REJECT"]
 
 
 class ContractUpdate(BaseModel):

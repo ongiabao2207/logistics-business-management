@@ -18,8 +18,11 @@ export default defineConfig({
       "/api/v1/production-periods": "http://localhost:8003",
 
       "/api/v1/payments": "http://localhost:8004",
-
       "/api": {
+        target: "http://127.0.0.1",
+        changeOrigin: true,
+      },
+      "/.well-known": {
         target: "http://127.0.0.1",
         changeOrigin: true,
       },

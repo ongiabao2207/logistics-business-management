@@ -13,6 +13,7 @@ from app.schemas.payment_schema import (
     PaymentPreviewResponse,
     PaymentResponse,
     PaymentUpdate,
+    PaymentReview,
 )
 from app.services.payment_service import PaymentError, PaymentService
 
@@ -61,6 +62,11 @@ def update_payment(payment_id: str, request: PaymentUpdate, _user: Annotated[Cur
 @router.post("/{payment_id}/submit", response_model=PaymentResponse)
 def submit_payment(payment_id: str, _user: Annotated[CurrentUser, Depends(require_roles("ROLE_ACCOUNTANT"))], db: Session = Depends(get_db), service: PaymentService = Depends(get_payment_service)):
     return call(lambda: service.submit(db, payment_id))
+
+
+@router.post("/{payment_id}/review", response_model=PaymentResponse)
+def review_payment(payment_id: str, request: PaymentReview, _user: Annotated[CurrentUser, Depends(require_roles("ROLE_LEGAL", "ROLE_DIRECTOR"))], db: Session = Depends(get_db), service: PaymentService = Depends(get_payment_service)):
+    return call(lambda: service.review(db, payment_id, request.decision))
 
 
 @router.post("/{payment_id}/adjustments", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)

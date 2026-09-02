@@ -35,4 +35,5 @@ export function usePreviewPayment() { return useMutation({ mutationFn: paymentAp
 export function useCreatePayment() { return usePaymentMutation(paymentApi.createPayment); }
 export function useUpdatePayment() { return usePaymentMutation(({ id, payload }) => paymentApi.updatePayment(id, payload)); }
 export function useSubmitPayment() { return usePaymentMutation(paymentApi.submitPayment); }
+export function useReviewPayment() { return usePaymentMutation(({ id, decision }) => paymentApi.reviewPayment(id, decision)); }
 export function useCreateAdjustment() { return usePaymentMutation(({ id, payload }) => paymentApi.createAdjustment(id, payload)); }

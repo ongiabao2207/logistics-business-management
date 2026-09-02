@@ -15,6 +15,8 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import { usePageTitle } from "../../../shared/hooks/usePageTitle.js";
 import { formatDate } from "../../../shared/utils/formatters.js";
+import { ROLES } from "../../identity/constants/permissions.js";
+import { useAuth } from "../../identity/hooks/useAuth.js";
 import { PaymentState } from "../components/PaymentState.jsx";
 import { PaymentStatus } from "../components/PaymentStatus.jsx";
 import { usePaymentContracts } from "../hooks/usePaymentContracts.js";
@@ -23,6 +25,8 @@ import { paymentStatusLabels } from "../types/index.js";
 
 export function PaymentListPage() {
   usePageTitle("Quản lý Bảng thanh toán");
+  const { user } = useAuth();
+  const canManage = user?.role === ROLES.ACCOUNTANT;
 
   const [params, setParams] = useSearchParams();
   const [keyword, setKeyword] = useState("");
@@ -147,13 +151,12 @@ export function PaymentListPage() {
           </p>
         </div>
 
-        <Link
-          className="pay-button primary"
-          to="/payments/create"
-        >
-          <PlusCircle size={17} />
-          Lập bảng thanh toán
-        </Link>
+        {canManage ? (
+          <Link className="pay-button primary" to="/payments/create">
+            <PlusCircle size={17} />
+            Lập bảng thanh toán
+          </Link>
+        ) : null}
       </div>
 
       <section className="pay-filter-card">
@@ -310,7 +313,7 @@ export function PaymentListPage() {
                           <Eye size={17} />
                         </Link>
 
-                        {item.status === "DRAFT" ? (
+                        {canManage && item.status === "DRAFT" ? (
                           <Link
                             to={`/payments/${item.id}/edit`}
                             title="Chỉnh sửa bản nháp"
@@ -320,7 +323,7 @@ export function PaymentListPage() {
                           </Link>
                         ) : null}
 
-                        {item.status === "DRAFT" ? (
+                        {canManage && item.status === "DRAFT" ? (
                           <Link
                             to={`/payments/${item.id}`}
                             title="Gửi phê duyệt"

@@ -1,5 +1,15 @@
 # Price Service
 
+## Dữ liệu mẫu phát triển
+
+Sau khi Price Service và database đã chạy, tạo/cập nhật 5 dịch vụ và 5 bảng giá bằng:
+
+```powershell
+docker compose exec price-service python -m app.scripts.seed_sample_data
+```
+
+Script có thể chạy lại an toàn và dữ liệu được lưu trực tiếp trong PostgreSQL của Price Service.
+
 Price Service quản lý dịch vụ, bảng giá và cung cấp giá đang áp dụng cho các
 service khác.
 

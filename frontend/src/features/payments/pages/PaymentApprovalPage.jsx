@@ -10,12 +10,14 @@ import {
   XCircle,
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { REVIEW_ROLES, ROLES } from "../../identity/constants/permissions.js";
+import { useAuth } from "../../identity/hooks/useAuth.js";
 import { PaymentLines } from "../components/PaymentLines.jsx";
 import { PaymentState } from "../components/PaymentState.jsx";
 import { PaymentStatus } from "../components/PaymentStatus.jsx";
 import { PaymentTotals } from "../components/PaymentTotals.jsx";
 import { usePaymentContracts } from "../hooks/usePaymentContracts.js";
-import { usePayment, useSubmitPayment } from "../hooks/usePayments.js";
+import { usePayment, useReviewPayment, useSubmitPayment } from "../hooks/usePayments.js";
 
 const workflowByStatus = {
   DRAFT: [
@@ -84,6 +86,8 @@ export function PaymentApprovalPage() {
   const navigate = useNavigate();
   const { data: payment, isPending, error } = usePayment(paymentId);
   const submit = useSubmitPayment();
+  const review = useReviewPayment();
+  const { user } = useAuth();
   const { getCustomerName } = usePaymentContracts();
 
   if (isPending) return <PaymentState title="Đang tải chi tiết..." />;
@@ -94,6 +98,8 @@ export function PaymentApprovalPage() {
     year: "numeric",
   });
   const customerName = getCustomerName(payment.contract_id, payment.customer_id);
+  const canManage = user?.role === ROLES.ACCOUNTANT;
+  const canReview = REVIEW_ROLES.includes(user?.role);
 
   return <>
     <Link className="pay-back" to="/payments"><ArrowLeft size={16} />Quay lại danh sách</Link>
@@ -104,9 +110,11 @@ export function PaymentApprovalPage() {
       </div>
       <div>
         <PaymentStatus status={payment.status} />
-        {payment.status === "DRAFT" ? <Link className="pay-button outline" to={`/payments/${payment.id}/edit`}><Pencil size={16} />Chỉnh sửa</Link> : null}
-        {payment.status === "DRAFT" ? <button className="pay-button primary" onClick={() => submit.mutate(payment.id, { onSuccess: () => navigate(`/payments/${payment.id}/approval`) })}><Send size={16} />Gửi phê duyệt</button> : null}
-        {payment.status === "REVISION_REQUESTED" ? <Link className="pay-button primary" to={`/payments/${payment.id}/adjust`}><FilePenLine size={16} />Điều chỉnh</Link> : null}
+        {canManage && payment.status === "DRAFT" ? <Link className="pay-button outline" to={`/payments/${payment.id}/edit`}><Pencil size={16} />Chỉnh sửa</Link> : null}
+        {canManage && payment.status === "DRAFT" ? <button className="pay-button primary" onClick={() => submit.mutate(payment.id, { onSuccess: () => navigate(`/payments/${payment.id}/approval`) })}><Send size={16} />Gửi phê duyệt</button> : null}
+        {canManage && ["REVISION_REQUESTED", "REJECTED"].includes(payment.status) ? <Link className="pay-button primary" to={`/payments/${payment.id}/adjust`}><FilePenLine size={16} />Điều chỉnh</Link> : null}
+        {canReview && payment.status === "PENDING_APPROVAL" ? <button className="pay-button outline" disabled={review.isPending} onClick={() => review.mutate({ id: payment.id, decision: "REJECT" })}><XCircle size={16} />Từ chối</button> : null}
+        {canReview && payment.status === "PENDING_APPROVAL" ? <button className="pay-button primary" disabled={review.isPending} onClick={() => review.mutate({ id: payment.id, decision: "APPROVE" })}><CheckCircle2 size={16} />Phê duyệt</button> : null}
       </div>
     </div>
 

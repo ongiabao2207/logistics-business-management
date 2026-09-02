@@ -10,6 +10,7 @@ from app.db.session import get_db
 from app.schemas.production_schema import (
     OverlapCheckRequest, OverlapCheckResponse, ProductionDetailsReplace,
     ProductionPeriodCreate, ProductionPeriodDetailResponse, ProductionPeriodResponse,
+    ProductionReview,
 )
 from app.services.production_service import ProductionService
 
@@ -39,12 +40,12 @@ def create_draft(payload: ProductionPeriodCreate, current_user: Annotated[Curren
 
 
 @router.get("", response_model=list[ProductionPeriodResponse])
-def list_production_periods(_user: Annotated[CurrentUser, Depends(require_roles("ROLE_OPERATION", "ROLE_ACCOUNTANT"))], customer_id: str | None = Query(default=None), contract_id: str | None = Query(default=None), service: ProductionService = Depends(get_production_service)) -> list[ProductionPeriodResponse]:
+def list_production_periods(_user: Annotated[CurrentUser, Depends(require_roles("ROLE_OPERATION", "ROLE_LEGAL", "ROLE_DIRECTOR"))], customer_id: str | None = Query(default=None), contract_id: str | None = Query(default=None), service: ProductionService = Depends(get_production_service)) -> list[ProductionPeriodResponse]:
     return service.list_periods(customer_id, contract_id)
 
 
 @router.get("/{period_id}", response_model=ProductionPeriodDetailResponse)
-def get_production_period(period_id: int, _user: Annotated[CurrentUser, Depends(require_roles("ROLE_OPERATION", "ROLE_ACCOUNTANT"))], service: ProductionService = Depends(get_production_service)) -> ProductionPeriodDetailResponse:
+def get_production_period(period_id: int, _user: Annotated[CurrentUser, Depends(require_roles("ROLE_OPERATION", "ROLE_LEGAL", "ROLE_DIRECTOR"))], service: ProductionService = Depends(get_production_service)) -> ProductionPeriodDetailResponse:
     period = service.get_period(period_id)
     return ProductionPeriodDetailResponse(**ProductionPeriodResponse.model_validate(period).model_dump(), totals=service.totals(period))
 
@@ -58,3 +59,8 @@ def replace_production_details(period_id: int, payload: ProductionDetailsReplace
 @router.post("/{period_id}/lock", response_model=ProductionPeriodResponse)
 def lock_production_period(period_id: int, current_user: Annotated[CurrentUser, Depends(require_roles("ROLE_OPERATION"))], service: ProductionService = Depends(get_production_service)) -> ProductionPeriodResponse:
     return service.lock_period(period_id, current_user.account_id)
+
+
+@router.post("/{period_id}/review", response_model=ProductionPeriodResponse)
+def review_production_period(period_id: int, payload: ProductionReview, current_user: Annotated[CurrentUser, Depends(require_roles("ROLE_LEGAL", "ROLE_DIRECTOR"))], service: ProductionService = Depends(get_production_service)) -> ProductionPeriodResponse:
+    return service.review_period(period_id, payload.decision, current_user.account_id)

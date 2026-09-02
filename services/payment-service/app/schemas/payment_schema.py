@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
@@ -14,6 +15,10 @@ class ApiModel(BaseModel):
 
         formatted = format(value, "f").rstrip("0").rstrip(".")
         return "0" if formatted in {"", "-0"} else formatted
+
+
+class PaymentReview(BaseModel):
+    decision: Literal["APPROVE", "REJECT"]
 
 
 class PaymentPeriodRequest(ApiModel):

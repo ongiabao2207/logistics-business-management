@@ -7,6 +7,9 @@ export const priceApi = {
   createService(payload) {
     return httpClient.post("/api/v1/services", payload);
   },
+  deactivateService(serviceId) {
+    return httpClient.delete(`/api/v1/services/${serviceId}`);
+  },
   listPriceLists(params) {
     return httpClient.get("/api/v1/price-lists", { params });
   },
@@ -18,6 +21,12 @@ export const priceApi = {
   },
   createPriceList(payload) {
     return httpClient.post("/api/v1/price-lists", payload);
+  },
+  updatePriceList(priceListId, payload) {
+    return httpClient.patch(`/api/v1/price-lists/${priceListId}`, payload);
+  },
+  deletePriceList(priceListId) {
+    return httpClient.delete(`/api/v1/price-lists/${priceListId}`);
   },
   submitPriceList(priceListId) {
     return httpClient.post(`/api/v1/price-lists/${priceListId}/submit`);

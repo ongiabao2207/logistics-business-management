@@ -1,20 +1,30 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
+import { LogOut } from "lucide-react";
 
 import { navigationItems } from "../constants/navigation";
+import { hasRole } from "../../features/identity/constants/permissions";
+import { useAuth } from "../../features/identity/hooks/useAuth";
 
 export function Sidebar() {
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  function handleLogout() {
+    logout();
+    navigate("/login", { replace: true });
+  }
+
   return (
     <aside className="sidebar">
       <div className="brand">
-        <span className="brand-mark">LB</span>
         <div>
-          <strong>Logistics</strong>
-          <span>Business Management</span>
+          <strong>Quản lý Kinh doanh</strong>
+          <span>Hệ thống quản trị tập trung</span>
         </div>
       </div>
 
       <nav className="nav-list" aria-label="Main navigation">
-        {navigationItems.map((item) => {
+        {navigationItems.filter((item) => !item.roles || hasRole(user, item.roles)).map((item) => {
           const Icon = item.icon;
 
           return (
@@ -30,6 +40,7 @@ export function Sidebar() {
           );
         })}
       </nav>
+      <button className="logout-button" type="button" onClick={handleLogout}><LogOut size={20} /><span>Đăng xuất</span></button>
     </aside>
   );
 }

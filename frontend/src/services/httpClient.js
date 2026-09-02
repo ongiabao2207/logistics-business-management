@@ -23,7 +23,15 @@ httpClient.interceptors.response.use(
   (response) => response.data,
   (error) => {
     const detail = error.response?.data?.detail;
-    const message = typeof detail === "string" ? detail : error.message;
+    const message = typeof detail === "string"
+      ? detail
+      : Array.isArray(detail)
+        ? detail.map((item) => {
+          const field = item.loc?.at(-1);
+          const labels = { username: "Tên đăng nhập", email: "Email", password: "Mật khẩu", role_id: "Vai trò" };
+          return `${labels[field] ?? field ?? "Dữ liệu"}: ${item.msg}`;
+        }).join(". ")
+        : error.message;
 
     return Promise.reject({
       status: error.response?.status,

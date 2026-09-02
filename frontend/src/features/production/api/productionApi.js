@@ -25,4 +25,7 @@ export const productionApi = {
       { headers: { "X-User-Id": actorId } },
     );
   },
+  reviewProductionPeriod(periodId, decision) {
+    return httpClient.post(`/api/v1/production-periods/${periodId}/review`, { decision });
+  },
 };

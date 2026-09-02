@@ -1,6 +1,5 @@
 from functools import lru_cache
 
-from app.clients.approvals import FakeApprovalClient
 from app.clients.contracts import FakeContractClient
 from app.clients.prices import FakePriceClient
 from app.clients.production import FakeProductionClient
@@ -17,6 +16,5 @@ def get_payment_service() -> PaymentService:
         contracts=FakeContractClient(),
         production=FakeProductionClient(),
         prices=FakePriceClient(),
-        approvals=FakeApprovalClient(),
         events=RabbitMQEventPublisher(get_settings().rabbitmq_url, get_settings().rabbitmq_enabled),
     )

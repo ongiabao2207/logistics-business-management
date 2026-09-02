@@ -138,7 +138,7 @@ export function ContractListPage() {
     <div className="contract-page">
       <div className="contract-page-heading">
         <div>
-          <p>BizManage / Quản lý hợp đồng</p>
+          <p>Quản lý kinh doanh / Hợp đồng</p>
           <h1>Quản lý hợp đồng</h1>
         </div>
         <button

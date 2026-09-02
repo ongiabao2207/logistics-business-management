@@ -85,10 +85,10 @@ def submit_price_list(price_list_id: str, _user: Annotated[CurrentUser, Depends(
 
 
 @router.post("/price-lists/{price_list_id}/approve", response_model=PriceListResponse)
-def approve_price_list(price_list_id: str, _user: Annotated[CurrentUser, Depends(require_roles("ROLE_DIRECTOR"))], db: Session = Depends(get_db)):
+def approve_price_list(price_list_id: str, _user: Annotated[CurrentUser, Depends(require_roles("ROLE_LEGAL", "ROLE_DIRECTOR"))], db: Session = Depends(get_db)):
     return price_service.approve_price_list(db, price_list_id)
 
 
 @router.post("/price-lists/{price_list_id}/reject", response_model=PriceListResponse)
-def reject_price_list(price_list_id: str, _user: Annotated[CurrentUser, Depends(require_roles("ROLE_DIRECTOR"))], db: Session = Depends(get_db)):
+def reject_price_list(price_list_id: str, _user: Annotated[CurrentUser, Depends(require_roles("ROLE_LEGAL", "ROLE_DIRECTOR"))], db: Session = Depends(get_db)):
     return price_service.reject_price_list(db, price_list_id)

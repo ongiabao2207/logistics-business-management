@@ -1,29 +1,7 @@
-import { Plus } from "lucide-react";
-
-import { DataState } from "../../../shared/components/DataState.jsx";
-import { PageHeader } from "../../../shared/components/PageHeader.jsx";
+import { ReviewWorkspace } from "../../../shared/components/ReviewWorkspace.jsx";
 import { usePageTitle } from "../../../shared/hooks/usePageTitle";
-
-export function ProductionPeriodListPage() {
-  usePageTitle("Production");
-
-  return (
-    <>
-      <PageHeader
-        eyebrow="Production Service"
-        title="Production Periods"
-        description="Create draft production periods, record details, reconcile quantities, and lock periods for payment."
-        actions={
-          <button className="button" type="button">
-            <Plus size={16} />
-            Period
-          </button>
-        }
-      />
-      <DataState
-        title="Production workspace ready"
-        description="The API wrapper targets the implemented /api/v1/production-periods endpoints."
-      />
-    </>
-  );
-}
+import { REVIEW_ROLES, ROLES } from "../../identity/constants/permissions";
+import { useAuth } from "../../identity/hooks/useAuth";
+import { productionApi } from "../api/productionApi";
+const config = { queryKey: ["production-periods"], eyebrow: "Production Service", title: "Quản lý sản lượng", description: "Danh sách, chi tiết và xử lý kỳ sản lượng theo vai trò.", listTitle: "Danh sách kỳ sản lượng", list: () => productionApi.listProductionPeriods({}), detail: productionApi.getProductionPeriod, review: productionApi.reviewProductionPeriod, getId: (x) => x.id, reviewable: (x) => x.status === "LOCKED", columns: [{ key: "id", label: "Mã kỳ" }, { key: "period_name", label: "Tên kỳ" }, { key: "customer_id", label: "Khách hàng" }, { key: "contract_id", label: "Hợp đồng" }, { key: "from_date", label: "Từ ngày" }, { key: "to_date", label: "Đến ngày" }, { key: "status", label: "Trạng thái" }], detailTitle: "Chi tiết kỳ sản lượng", detailFields: (x) => [{ label: "Tên kỳ", value: x.period_name }, { label: "Khách hàng", value: x.customer_id }, { label: "Hợp đồng", value: x.contract_id }, { label: "Thời gian", value: `${x.from_date} – ${x.to_date}` }, { label: "Số dòng sản lượng", value: x.details?.length ?? 0 }, { label: "Trạng thái", value: x.status }] };
+export function ProductionPeriodListPage() { usePageTitle("Quản lý sản lượng"); const { user } = useAuth(); return <ReviewWorkspace config={config} canCreate={user.role === ROLES.OPERATION} canReview={REVIEW_ROLES.includes(user.role)} />; }

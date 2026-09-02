@@ -15,6 +15,8 @@ def utc_now() -> datetime:
 class ProductionPeriodStatus(StrEnum):
     DRAFT = "DRAFT"
     LOCKED = "LOCKED"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
 
 
 class ProductionPeriod(Base):

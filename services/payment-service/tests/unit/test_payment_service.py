@@ -164,7 +164,7 @@ def test_preview_rejects_invalid_dependencies(
         )
 
 
-def test_create_snapshots_price_and_submit_starts_approval(
+def test_create_snapshots_price_and_submit_starts_direct_review(
     db_session,
 ):
     service = get_payment_service()
@@ -191,14 +191,7 @@ def test_create_snapshots_price_and_submit_starts_approval(
         submitted_payment.status
         == PaymentStatus.PENDING_APPROVAL
     )
-    assert (
-        submitted_payment.approval_instance_id
-        is not None
-    )
-    assert (
-        submitted_payment.approval_instance_id
-        .startswith("approval-")
-    )
+    assert submitted_payment.approval_instance_id is None
 
 
 def test_submit_is_idempotency_guarded(

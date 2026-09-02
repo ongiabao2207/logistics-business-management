@@ -86,6 +86,16 @@ class ProductionService:
             raise
         return self.get_period(period_id)
 
+    def review_period(self, period_id: int, decision: str, actor_id: str) -> ProductionPeriod:
+        period = self.get_period(period_id)
+        if period.status != ProductionPeriodStatus.LOCKED.value:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only locked production periods can be reviewed")
+        previous_status = period.status
+        period.status = ProductionPeriodStatus.APPROVED.value if decision == "APPROVE" else ProductionPeriodStatus.REJECTED.value
+        record_event(self.db, "PRODUCTION_PERIOD_REVIEWED", period.id, self._event_payload(period, actor_id, previous_status, period.status))
+        self.db.commit()
+        return self.get_period(period_id)
+
     @staticmethod
     def totals(period: ProductionPeriod) -> list[dict]:
         grouped: dict[tuple[str, str], Decimal] = defaultdict(Decimal)

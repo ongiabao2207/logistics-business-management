@@ -56,7 +56,7 @@ Chạy trong thư mục `infra/docker`:
 docker compose exec `
   -e IDENTITY_BOOTSTRAP_ADMIN_USERNAME=admin `
   -e IDENTITY_BOOTSTRAP_ADMIN_EMAIL=admin@gmail.com `
-  -e IDENTITY_BOOTSTRAP_ADMIN_PASSWORD=admin@gmail.com `
+  -e IDENTITY_BOOTSTRAP_ADMIN_PASSWORD="<your-secure-password>" `
   identity-service python -m app.scripts.bootstrap_admin
 ```
 
@@ -64,6 +64,16 @@ Kết quả mong đợi:
 
 ```text
 Created administrator account: admin
+```
+
+### Tạo dữ liệu mẫu phát triển
+
+Lệnh sau tạo/cập nhật 5 tài khoản nghiệp vụ với mật khẩu chỉ được truyền qua biến môi trường:
+
+```powershell
+docker compose exec `
+  -e IDENTITY_SAMPLE_ACCOUNT_PASSWORD="<your-secure-password>" `
+  identity-service python -m app.scripts.seed_sample_data
 ```
 
 ## 4. Test đăng nhập
@@ -79,7 +89,7 @@ Body:
 ```json
 {
   "username": "admin",
-  "password": "admin@gmail.com"
+  "password": "<your-secure-password>"
 }
 ```
 
@@ -162,3 +172,12 @@ docker compose up -d `
   price-service `
   production-service `
   payment-service
+
+- Chạy frontend
+cd D:\logistics-business-management\frontend
+npm install
+npm run dev
+
+- chạy docker
+cd D:\logistics-business-management\infra\docker
+docker compose up --build -d traefik identity-db identity-service

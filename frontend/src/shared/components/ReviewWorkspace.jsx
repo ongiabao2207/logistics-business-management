@@ -1,0 +1,18 @@
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check, Eye, Plus, X } from "lucide-react";
+import { DataState } from "./DataState.jsx";
+import { PageHeader } from "./PageHeader.jsx";
+
+export function ReviewWorkspace({ config, canCreate, canReview }) {
+  const client = useQueryClient();
+  const [selectedId, setSelectedId] = useState(null);
+  const listQuery = useQuery({ queryKey: config.queryKey, queryFn: config.list });
+  const detailQuery = useQuery({ queryKey: [...config.queryKey, selectedId], queryFn: () => config.detail(selectedId), enabled: Boolean(selectedId) });
+  const review = useMutation({ mutationFn: ({ id, decision }) => config.review(id, decision), onSuccess: () => client.invalidateQueries({ queryKey: config.queryKey }) });
+  const rows = Array.isArray(listQuery.data) ? listQuery.data : [];
+  return <section className="workspace"><PageHeader eyebrow={config.eyebrow} title={config.title} description={config.description} actions={canCreate ? <button className="button primary" type="button"><Plus size={17} /> Tạo mới</button> : null} />
+    {listQuery.isLoading ? <DataState title="Đang tải dữ liệu..." /> : listQuery.isError ? <DataState title="Không tải được dữ liệu" description={listQuery.error.message} /> : <div className="table-card"><div className="card-heading"><div><h2>{config.listTitle}</h2><p>{rows.length} kết quả</p></div></div><div className="table-scroll"><table className="business-table"><thead><tr>{config.columns.map((column) => <th key={column.key}>{column.label}</th>)}<th>Thao tác</th></tr></thead><tbody>{rows.map((row) => { const id = config.getId(row); return <tr key={id}>{config.columns.map((column) => <td key={column.key}>{column.render ? column.render(row) : row[column.key] ?? "—"}</td>)}<td><div className="row-actions"><button className="icon-button" type="button" title="Xem chi tiết" onClick={() => setSelectedId(id)}><Eye size={18} /></button>{canReview && config.reviewable(row) && <><button className="icon-button approve" type="button" title="Phê duyệt" onClick={() => review.mutate({ id, decision: "APPROVE" })}><Check size={18} /></button><button className="icon-button danger" type="button" title="Từ chối" onClick={() => review.mutate({ id, decision: "REJECT" })}><X size={18} /></button></>}</div></td></tr>; })}</tbody></table></div></div>}
+    {selectedId && <div className="modal-backdrop" onMouseDown={() => setSelectedId(null)}><div className="modal-card modal-wide" onMouseDown={(event) => event.stopPropagation()}><div className="modal-heading"><div><div><h2>{config.detailTitle}</h2><p>Mã hồ sơ: {selectedId}</p></div></div><button className="modal-close" type="button" onClick={() => setSelectedId(null)}>×</button></div>{detailQuery.isLoading ? <DataState title="Đang tải chi tiết..." /> : detailQuery.isError ? <DataState title="Không tải được chi tiết" description={detailQuery.error.message} /> : <div className="review-detail-grid">{config.detailFields(detailQuery.data).map((field) => <div key={field.label}><small>{field.label}</small><strong>{field.value ?? "—"}</strong></div>)}</div>}{review.isError && <p className="form-error">{review.error.message}</p>}{canReview && detailQuery.data && config.reviewable(detailQuery.data) && <div className="modal-actions"><button className="button danger-button" type="button" onClick={() => review.mutate({ id: selectedId, decision: "REJECT" })}>Từ chối</button><button className="button navy" type="button" onClick={() => review.mutate({ id: selectedId, decision: "APPROVE" })}>Phê duyệt</button></div>}</div></div>}
+  </section>;
+}

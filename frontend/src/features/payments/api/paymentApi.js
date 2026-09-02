@@ -19,6 +19,9 @@ export const paymentApi = {
   submitPayment(paymentId) {
     return httpClient.post(`/api/v1/payments/${paymentId}/submit`);
   },
+  reviewPayment(paymentId, decision) {
+    return httpClient.post(`/api/v1/payments/${paymentId}/review`, { decision });
+  },
   createAdjustment(paymentId, payload) {
     return httpClient.post(`/api/v1/payments/${paymentId}/adjustments`, payload);
   },
