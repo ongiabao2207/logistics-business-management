@@ -82,8 +82,8 @@ def build_client(customer: CustomerInfo | None):
 def valid_payload():
     return {
         "customer_id": "KH0001",
-        "valid_from": "2026-01-01",
-        "valid_to": "2026-12-31",
+        "valid_from": (date.today() + timedelta(days=30)).isoformat(),
+        "valid_to": (date.today() + timedelta(days=300)).isoformat(),
         "payment_terms": "Monthly payment within 15 days",
         "services": [{"service_id": 1, "quantity": 2}],
     }
@@ -136,18 +136,33 @@ def test_post_contracts_returns_not_found_for_missing_customer():
     assert response.json()["detail"] == "customer does not exist"
 
 
-def test_post_contracts_rejects_invalid_effective_period():
+def test_post_contracts_rejects_non_future_valid_from():
     client = build_client(active_customer())
     payload = valid_payload()
-    payload["valid_from"] = "2026-12-31"
-    payload["valid_to"] = "2026-01-01"
+    payload["valid_from"] = date.today().isoformat()
+    payload["valid_to"] = (date.today() + timedelta(days=30)).isoformat()
 
     response = client.post(
         f"{API_PREFIX}/contracts", json=payload, headers=idempotency_headers()
     )
 
     assert response.status_code == 422
-    assert response.json()["detail"] == "valid_from must not be later than valid_to"
+    assert response.json()["detail"] == "valid_from must be greater than current date"
+
+
+def test_post_contracts_rejects_valid_to_before_valid_from():
+    client = build_client(active_customer())
+    payload = valid_payload()
+    valid_from = date.today() + timedelta(days=30)
+    payload["valid_from"] = valid_from.isoformat()
+    payload["valid_to"] = (valid_from - timedelta(days=1)).isoformat()
+
+    response = client.post(
+        f"{API_PREFIX}/contracts", json=payload, headers=idempotency_headers()
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "valid_to must be on or after valid_from"
 
 
 def test_post_contracts_rejects_unknown_service_id():
