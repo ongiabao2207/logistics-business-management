@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     identity_jwks_url: str = "http://localhost:8005/.well-known/jwks.json"
     jwt_issuer: str = "identity-service"
     jwt_audience: str = "logistics-api"
+    rabbitmq_url: str = "amqp://guest:guest@localhost:5672/%2F"
+    rabbitmq_enabled: bool = False
+    outbox_poll_interval_seconds: float = 2.0
 
     model_config = SettingsConfigDict(env_file=".env", env_prefix="PRODUCTION_", extra="ignore")
 

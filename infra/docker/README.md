@@ -21,10 +21,13 @@ Traefik is available at `http://localhost` and its development dashboard is at
 | Price Service | `http://price.localhost` | `8002` |
 | Production Service | `http://production.localhost` | `8003` |
 | Payment Service | `http://payment.localhost` | `8004` |
+| Notification Service | `http://notification.localhost` | `8006` |
+| RabbitMQ management | n/a | `15672` |
 | Contract PostgreSQL | n/a | `5432` |
 | Price PostgreSQL | n/a | `5433` |
 | Production PostgreSQL | n/a | `5434` |
 | Payment PostgreSQL | n/a | `5435` |
+| Notification PostgreSQL | n/a | `5437` |
 
 The direct ports are bound to `127.0.0.1` for local development. Container-to-
 container connections use service names and container ports instead of host

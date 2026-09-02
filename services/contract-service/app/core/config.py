@@ -17,6 +17,8 @@ class Settings:
     identity_jwks_url: str
     jwt_issuer: str
     jwt_audience: str
+    rabbitmq_url: str
+    rabbitmq_enabled: bool
 
 
 @lru_cache
@@ -50,4 +52,6 @@ def get_settings() -> Settings:
         ),
         jwt_issuer=os.getenv("CONTRACT_SERVICE_JWT_ISSUER", "identity-service"),
         jwt_audience=os.getenv("CONTRACT_SERVICE_JWT_AUDIENCE", "logistics-api"),
+        rabbitmq_url=os.getenv("CONTRACT_SERVICE_RABBITMQ_URL", "amqp://guest:guest@localhost:5672/%2F"),
+        rabbitmq_enabled=os.getenv("CONTRACT_SERVICE_RABBITMQ_ENABLED", "false").lower() == "true",
     )

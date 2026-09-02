@@ -62,3 +62,5 @@ class OutboxEvent(Base):
     payload: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    publish_attempts: Mapped[int] = mapped_column(default=0)
+    last_publish_error: Mapped[str | None] = mapped_column(Text, nullable=True)
