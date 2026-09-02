@@ -1,10 +1,7 @@
 import { PlusCircle, X } from "lucide-react";
 import { useState } from "react";
 
-import {
-  useContractServiceCatalog,
-  useEffectiveServicePrice,
-} from "../hooks/useContractServiceCatalog";
+import { useContractServiceCatalog } from "../hooks/useContractServiceCatalog";
 import { formatContractCurrency } from "./contractDisplay";
 
 export function AddContractServiceModal({ disabledServiceIds, onAdd, onClose }) {
@@ -12,12 +9,10 @@ export function AddContractServiceModal({ disabledServiceIds, onAdd, onClose }) 
   const [quantity, setQuantity] = useState(1);
   const catalog = useContractServiceCatalog();
   const selectedServiceId = serviceId ? Number(serviceId) : null;
-  const price = useEffectiveServicePrice(selectedServiceId);
   const services = Array.isArray(catalog.data) ? catalog.data : [];
-  const activeServices = services.filter((service) => service.is_active);
-  const selectedService = activeServices.find((service) => service.id === selectedServiceId);
-  const isCatalogUnavailable = catalog.isLoading || catalog.isError || activeServices.length === 0;
-  const canAdd = Boolean(selectedService && price.data && Number(quantity) > 0);
+  const selectedService = services.find((service) => service.id === selectedServiceId);
+  const isCatalogUnavailable = catalog.isLoading || catalog.isError || services.length === 0;
+  const canAdd = Boolean(selectedService && Number(quantity) > 0);
 
   function getPlaceholderLabel() {
     if (catalog.isLoading) {
@@ -28,11 +23,11 @@ export function AddContractServiceModal({ disabledServiceIds, onAdd, onClose }) 
       return "Không tải được dịch vụ";
     }
 
-    if (activeServices.length === 0) {
-      return "Chưa có dịch vụ đang hoạt động";
+    if (services.length === 0) {
+      return "Chưa có dịch vụ trong bảng giá hiện hành";
     }
 
-    return "Chọn dịch vụ từ danh mục...";
+    return "Chọn dịch vụ từ bảng giá hiện hành...";
   }
 
   function handleSubmit(event) {
@@ -44,9 +39,9 @@ export function AddContractServiceModal({ disabledServiceIds, onAdd, onClose }) 
 
     onAdd({
       service_id: selectedService.id,
-      service_name: price.data.service_name,
-      service_unit: price.data.unit,
-      service_price: price.data.unit_price,
+      service_name: selectedService.name,
+      service_unit: selectedService.unit,
+      service_price: selectedService.unit_price,
       quantity: Number(quantity),
     });
   }
@@ -76,7 +71,7 @@ export function AddContractServiceModal({ disabledServiceIds, onAdd, onClose }) 
             onChange={(event) => setServiceId(event.target.value)}
           >
             <option value="">{getPlaceholderLabel()}</option>
-            {activeServices.map((service) => (
+            {services.map((service) => (
               <option
                 key={service.id}
                 value={service.id}
@@ -101,18 +96,14 @@ export function AddContractServiceModal({ disabledServiceIds, onAdd, onClose }) 
         <div className="contract-price-preview">
           {catalog.isError ? (
             <span>
-              Không tải được danh mục dịch vụ. Hãy đăng nhập lại hoặc kiểm tra Price Service.
+              Không tải được bảng giá hiện hành. Hãy đăng nhập lại hoặc kiểm tra Price Service.
             </span>
           ) : null}
-          {price.isFetching ? <span>Đang lấy đơn giá hiệu lực...</span> : null}
-          {price.isError ? (
-            <span>Không tìm thấy đơn giá hiệu lực cho dịch vụ này.</span>
-          ) : null}
-          {price.data ? (
+          {selectedService ? (
             <span>
               Đơn giá áp dụng:{" "}
               <strong>
-                {formatContractCurrency(price.data.unit_price)} VND / {price.data.unit}
+                {formatContractCurrency(selectedService.unit_price)} VND / {selectedService.unit}
               </strong>
             </span>
           ) : null}
