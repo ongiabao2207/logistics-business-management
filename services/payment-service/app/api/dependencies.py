@@ -5,7 +5,8 @@ from app.clients.contracts import FakeContractClient
 from app.clients.prices import FakePriceClient
 from app.clients.production import FakeProductionClient
 from app.crud.payment_crud import PaymentCrud
-from app.messaging.producer import NoOpEventPublisher
+from app.core.config import get_settings
+from app.messaging.producer import RabbitMQEventPublisher
 from app.services.payment_service import PaymentService
 
 
@@ -17,5 +18,5 @@ def get_payment_service() -> PaymentService:
         production=FakeProductionClient(),
         prices=FakePriceClient(),
         approvals=FakeApprovalClient(),
-        events=NoOpEventPublisher(),
+        events=RabbitMQEventPublisher(get_settings().rabbitmq_url, get_settings().rabbitmq_enabled),
     )

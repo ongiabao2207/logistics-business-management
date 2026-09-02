@@ -59,6 +59,8 @@ services:
       IDENTITY_JWT_ISSUER: identity-service
       IDENTITY_JWT_AUDIENCE: logistics-api
       IDENTITY_ACCESS_TOKEN_TTL_MINUTES: 15
+      IDENTITY_RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/%2F
+      IDENTITY_RABBITMQ_ENABLED: "true"
     ports:
       - "127.0.0.1:${IDENTITY_SERVICE_PORT:-8005}:8000"
     volumes:
@@ -66,6 +68,8 @@ services:
     depends_on:
       identity-db:
         condition: service_healthy
+      rabbitmq:
+        condition: service_started
     labels:
       - traefik.enable=true
       - traefik.docker.network=lbm-gateway
@@ -110,6 +114,8 @@ services:
       CONTRACT_SERVICE_IDENTITY_JWKS_URL: http://identity-service:8000/.well-known/jwks.json
       CONTRACT_SERVICE_JWT_ISSUER: identity-service
       CONTRACT_SERVICE_JWT_AUDIENCE: logistics-api
+      CONTRACT_SERVICE_RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/%2F
+      CONTRACT_SERVICE_RABBITMQ_ENABLED: "true"
     command: >
       sh -c "alembic upgrade head &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000"
@@ -123,6 +129,8 @@ services:
       redis:
         condition: service_started
       identity-service:
+        condition: service_started
+      rabbitmq:
         condition: service_started
     labels:
       - traefik.enable=true
@@ -163,12 +171,16 @@ services:
       PRICE_IDENTITY_JWKS_URL: http://identity-service:8000/.well-known/jwks.json
       PRICE_JWT_ISSUER: identity-service
       PRICE_JWT_AUDIENCE: logistics-api
+      PRICE_RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/%2F
+      PRICE_RABBITMQ_ENABLED: "true"
     ports:
       - "127.0.0.1:${PRICE_SERVICE_PORT:-8002}:8001"
     depends_on:
       price-db:
         condition: service_healthy
       identity-service:
+        condition: service_started
+      rabbitmq:
         condition: service_started
     labels:
       - traefik.enable=true
@@ -256,12 +268,16 @@ services:
       PAYMENT_IDENTITY_JWKS_URL: http://identity-service:8000/.well-known/jwks.json
       PAYMENT_JWT_ISSUER: identity-service
       PAYMENT_JWT_AUDIENCE: logistics-api
+      PAYMENT_RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/%2F
+      PAYMENT_RABBITMQ_ENABLED: "true"
     ports:
       - "127.0.0.1:${PAYMENT_SERVICE_PORT:-8004}:8000"
     depends_on:
       payment-db:
         condition: service_healthy
       identity-service:
+        condition: service_started
+      rabbitmq:
         condition: service_started
     labels:
       - traefik.enable=true

@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     jwt_issuer: str = "identity-service"
     jwt_audience: str = "logistics-api"
     access_token_ttl_minutes: int = 15
+    rabbitmq_url: str = "amqp://guest:guest@localhost:5672/%2F"
+    rabbitmq_enabled: bool = False
 
     model_config = SettingsConfigDict(env_prefix="IDENTITY_", env_file=".env", extra="ignore")
 

@@ -1,12 +1,27 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
+from app.core.config import get_settings
 from app.db.base import Base
 from app.db.session import engine
+from app.messaging.outbox_publisher import OutboxPublisher
+from app.messaging.worker import OutboxWorker
 from app.routers.production_router import router
 
-Base.metadata.create_all(bind=engine)
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    settings = get_settings()
+    worker = None
+    if settings.rabbitmq_enabled:
+        worker = OutboxWorker(OutboxPublisher(settings.rabbitmq_url), settings.outbox_poll_interval_seconds)
+        worker.start()
+    yield
+    if worker:
+        worker.stop()
 
-app = FastAPI(title="Production Service", version="1.0.0")
+app = FastAPI(title="Production Service", version="1.0.0", lifespan=lifespan)
 app.include_router(router)
 
 

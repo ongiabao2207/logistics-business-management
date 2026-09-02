@@ -6,6 +6,6 @@ export function useNotifications(params) {
   return useQuery({
     queryKey: ["notifications", params],
     queryFn: () => notificationApi.listNotifications(params),
-    enabled: false,
+    enabled: true,
   });
 }

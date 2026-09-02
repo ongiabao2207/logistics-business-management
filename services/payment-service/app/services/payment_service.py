@@ -243,6 +243,11 @@ class PaymentService:
                 "total_amount": str(
                     payment.total_amount
                 ),
+                "recipient_role": "ROLE_ACCOUNTANT",
+                "title": "Hồ sơ thanh toán mới đã được tạo",
+                "content": f"Hồ sơ thanh toán {payment.id} đã sẵn sàng để xử lý.",
+                "reference_type": "PAYMENT",
+                "reference_id": payment.id,
             },
         )
 
@@ -574,6 +579,11 @@ class PaymentService:
             {
                 "payment_id": submitted.id,
                 "approval_instance_id": approval_id,
+                "recipient_role": "ROLE_DIRECTOR",
+                "title": "Hồ sơ thanh toán chờ phê duyệt",
+                "content": f"Hồ sơ thanh toán {submitted.id} đang chờ phê duyệt.",
+                "reference_type": "PAYMENT",
+                "reference_id": submitted.id,
             },
         )
 
@@ -637,6 +647,11 @@ class PaymentService:
             {
                 "payment_id": payment.id,
                 "revision_request_id": data.revision_request_id,
+                "recipient_role": "ROLE_ACCOUNTANT",
+                "title": "Hồ sơ thanh toán đã được điều chỉnh",
+                "content": f"Hồ sơ thanh toán {payment.id} đã có điều chỉnh mới.",
+                "reference_type": "PAYMENT",
+                "reference_id": payment.id,
             },
         )
 

@@ -6,7 +6,9 @@ from sqlalchemy.orm import Session
 from app.clients.customer_client import CustomerClient, get_customer_client
 from app.clients.price_client import get_price_client
 from app.core.auth import CurrentUser, get_current_user, require_roles
+from app.core.config import get_settings
 from app.db.session import get_db
+from app.messaging.producer import RabbitMQEventPublisher
 from app.schemas.contract_schema import (
     ContractCreate,
     ContractDetailRead,
@@ -36,9 +38,11 @@ def get_contract_service(
     customer_client: CustomerClient = Depends(get_customer_client),
     current_user: CurrentUser = Depends(get_current_user),
 ) -> ContractService:
+    settings = get_settings()
     return ContractService(
         customer_client=customer_client,
         price_client=get_price_client(current_user.access_token),
+        events=RabbitMQEventPublisher(settings.rabbitmq_url, settings.rabbitmq_enabled),
     )
 
 

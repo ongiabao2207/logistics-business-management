@@ -22,7 +22,7 @@ class NoOpEventPublisher:
 
 
 class RabbitMQEventPublisher:
-    """Best-effort notification event publisher; never changes price outcomes."""
+    """Best-effort notification event publisher; never changes identity outcomes."""
 
     def __init__(self, rabbitmq_url: str, enabled: bool) -> None:
         self.rabbitmq_url = rabbitmq_url
@@ -37,7 +37,7 @@ class RabbitMQEventPublisher:
             channel.exchange_declare(exchange=EXCHANGE, exchange_type="topic", durable=True)
             channel.basic_publish(
                 exchange=EXCHANGE,
-                routing_key=f"price.{event_name.lower()}",
+                routing_key=f"identity.{event_name.lower()}",
                 body=json.dumps({
                     "event_id": str(uuid4()),
                     "event_type": event_name,
@@ -48,4 +48,4 @@ class RabbitMQEventPublisher:
             )
             connection.close()
         except Exception:
-            LOGGER.exception("Could not publish price event %s", event_name)
+            LOGGER.exception("Could not publish identity event %s", event_name)
