@@ -18,4 +18,9 @@ export const contractApi = {
   updateContractStatus(contractId, payload) {
     return httpClient.patch(`/api/v1/contracts/${contractId}/status`, payload);
   },
+  submitContract(contractId) {
+    return httpClient.patch(`/api/v1/contracts/${contractId}/status`, {
+      status: "SUBMITTED",
+    });
+  },
 };

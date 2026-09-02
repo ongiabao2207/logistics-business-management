@@ -13,6 +13,9 @@ export const priceApi = {
   getPriceList(priceListId) {
     return httpClient.get(`/api/v1/price-lists/${priceListId}`);
   },
+  getEffectiveServicePrice(serviceId) {
+    return httpClient.get(`/api/v1/price-lists/effective/services/${serviceId}`);
+  },
   createPriceList(payload) {
     return httpClient.post("/api/v1/price-lists", payload);
   },

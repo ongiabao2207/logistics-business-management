@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import { DataState } from "../../../shared/components/DataState.jsx";
 import { usePageTitle } from "../../../shared/hooks/usePageTitle";
@@ -96,6 +97,7 @@ function filterContracts(contracts, filters) {
 export function ContractListPage() {
   usePageTitle("Contracts");
 
+  const navigate = useNavigate();
   const [filters, setFilters] = useState(initialFilters);
   const [page, setPage] = useState(1);
   const [selectedContractId, setSelectedContractId] = useState(null);
@@ -139,7 +141,11 @@ export function ContractListPage() {
           <p>BizManage / Quản lý hợp đồng</p>
           <h1>Quản lý hợp đồng</h1>
         </div>
-        <button className="button contract-create-button" type="button" disabled>
+        <button
+          className="button contract-create-button"
+          type="button"
+          onClick={() => navigate("/contracts/new")}
+        >
           <Plus size={18} />
           Lập hợp đồng mới
         </button>

@@ -505,6 +505,18 @@
   font-size: 15px;
 }
 
+.contract-service-table th:nth-child(2),
+.contract-service-table td:nth-child(2) {
+  text-align: center;
+}
+
+.contract-service-table th:nth-child(4),
+.contract-service-table td:nth-child(4),
+.contract-service-table th:nth-child(5),
+.contract-service-table td:nth-child(5) {
+  text-align: right;
+}
+
 .contract-total-panel {
   display: flex;
   align-items: center;
@@ -576,10 +588,326 @@
   opacity: 0.72;
 }
 
+.contract-create-page {
+  display: grid;
+  gap: 24px;
+  padding-bottom: 96px;
+}
+
+.contract-create-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.contract-create-header h1 {
+  margin: 0;
+  color: #0a2c68;
+  font-size: 24px;
+}
+
+.contract-back-button,
+.contract-line-remove,
+.contract-add-service-modal header button {
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+}
+
+.contract-back-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+}
+
+.contract-back-button:hover,
+.contract-line-remove:hover,
+.contract-add-service-modal header button:hover {
+  background: #eef2f7;
+}
+
+.contract-create-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.contract-create-card,
+.contract-service-lines {
+  border: 1px solid #d3d8e2;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.contract-create-card {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  min-height: 280px;
+  padding: 28px;
+}
+
+.contract-create-card h2,
+.contract-service-lines h2,
+.contract-add-service-modal h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: #172033;
+  font-size: 18px;
+}
+
+.contract-create-card h2 svg,
+.contract-add-service-modal h2 svg {
+  color: #073282;
+}
+
+.contract-create-card label,
+.contract-add-service-modal label {
+  display: grid;
+  gap: 8px;
+}
+
+.contract-create-card label span,
+.contract-add-service-modal label span {
+  color: #334155;
+  font-weight: 700;
+}
+
+.contract-create-card input,
+.contract-create-card select,
+.contract-add-service-modal input,
+.contract-add-service-modal select,
+.contract-add-service-modal textarea {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid #cfd8e3;
+  border-radius: 6px;
+  outline: 0;
+  background: #ffffff;
+  color: #172033;
+  padding: 0 14px;
+}
+
+.contract-create-card input:focus,
+.contract-create-card select:focus,
+.contract-add-service-modal input:focus,
+.contract-add-service-modal select:focus,
+.contract-add-service-modal textarea:focus {
+  border-color: #073282;
+  box-shadow: 0 0 0 3px rgb(7 50 130 / 12%);
+}
+
+.contract-create-card select:disabled {
+  cursor: not-allowed;
+  background: #f1f5f9;
+  color: #334155;
+  opacity: 1;
+}
+
+.contract-add-service-modal textarea {
+  min-height: 110px;
+  padding: 14px;
+  resize: vertical;
+}
+
+.contract-create-date-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.contract-customer-note,
+.contract-create-hint,
+.contract-price-preview {
+  border: 1px dashed #d3d8e2;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #64748b;
+  padding: 16px;
+}
+
+.contract-customer-note {
+  display: grid;
+  gap: 6px;
+}
+
+.contract-customer-note strong {
+  color: #073282;
+}
+
+.contract-customer-note em,
+.contract-service-lines-table em {
+  color: #64748b;
+}
+
+.contract-create-hint,
+.contract-price-preview {
+  margin: 0;
+}
+
+.contract-service-lines {
+  overflow: hidden;
+  min-height: 520px;
+}
+
+.contract-service-lines header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #d3d8e2;
+  background: #fbfbff;
+  padding: 22px 28px;
+}
+
+.contract-service-lines-table {
+  overflow-x: auto;
+}
+
+.contract-service-lines-table table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+}
+
+.contract-service-lines-table th,
+.contract-service-lines-table td {
+  border-bottom: 1px solid #e5e7ef;
+  padding: 18px 28px;
+  text-align: left;
+}
+
+.contract-service-lines-table th {
+  background: #f4f4fa;
+  color: #4d5160;
+  font-size: 14px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.contract-empty-line {
+  height: 160px;
+  color: #64748b;
+  text-align: center;
+}
+
+.contract-line-remove {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+}
+
+.contract-create-error {
+  margin: 0;
+  border-radius: 8px;
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 14px 16px;
+  font-weight: 700;
+}
+
+.contract-create-footer {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 260px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  border-top: 1px solid #d3d8e2;
+  background: #ffffff;
+  padding: 18px 28px;
+}
+
+.contract-create-footer > span {
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #334155;
+  padding: 8px 16px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.contract-create-footer p {
+  flex: 1;
+  margin: 0;
+  color: #64748b;
+}
+
+.contract-create-footer div {
+  display: flex;
+  gap: 12px;
+}
+
+.contract-create-footer .button {
+  min-height: 44px;
+  min-width: 132px;
+}
+
+.contract-create-footer .button:disabled,
+.contract-add-service-modal .button:disabled {
+  cursor: not-allowed;
+  opacity: 0.64;
+}
+
+.contract-create-modal-backdrop {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(15 23 42 / 52%);
+  padding: 24px;
+}
+
+.contract-add-service-modal {
+  display: grid;
+  gap: 20px;
+  width: min(560px, 100%);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 24px 80px rgb(15 23 42 / 30%);
+}
+
+.contract-add-service-modal header,
+.contract-add-service-modal footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.contract-add-service-modal header {
+  border-bottom: 1px solid #e2e6ef;
+  padding: 18px 22px;
+}
+
+.contract-add-service-modal label,
+.contract-price-preview {
+  margin: 0 22px;
+}
+
+.contract-add-service-modal footer {
+  border-top: 1px solid #e2e6ef;
+  background: #fbfbff;
+  padding: 16px 22px;
+}
+
+.contract-add-service-modal footer .button {
+  min-height: 42px;
+}
+
 @media (max-width: 1100px) {
   .contract-filter-grid,
   .contract-kpi-grid,
-  .contract-info-card {
+  .contract-info-card,
+  .contract-create-grid {
     grid-template-columns: 1fr;
   }
 
@@ -626,5 +954,19 @@
 
   .contract-service-table table {
     min-width: 760px;
+  }
+
+  .contract-create-footer {
+    position: static;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .contract-create-footer div {
+    flex-wrap: wrap;
+  }
+
+  .contract-create-date-grid {
+    grid-template-columns: 1fr;
   }
 }

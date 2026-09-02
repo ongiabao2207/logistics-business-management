@@ -1,8 +1,10 @@
-import { Edit3, FileText, Info, X } from "lucide-react";
+import { Edit3, FileText, Info, Send, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import { DataState } from "../../../shared/components/DataState.jsx";
 import { StatusBadge } from "../../../shared/components/StatusBadge.jsx";
 import { useContractDetail } from "../hooks/useContractDetail";
+import { useSubmitContract } from "../hooks/useSubmitContract";
 
 import {
   formatContractCurrency,
@@ -13,8 +15,16 @@ import {
 } from "./contractDisplay";
 
 export function ContractDetailModal({ contractId, onClose }) {
+  const navigate = useNavigate();
   const { data: contract, isLoading, isError, error } = useContractDetail(contractId);
+  const submitContract = useSubmitContract();
   const status = getStatusMeta(contract?.status);
+  const canEditDraft = contract?.status === "DRAFT";
+
+  function handleEdit() {
+    onClose();
+    navigate(`/contracts/${contractId}/edit`);
+  }
 
   return (
     <div className="contract-modal-backdrop" role="presentation" onMouseDown={onClose}>
@@ -44,9 +54,7 @@ export function ContractDetailModal({ contractId, onClose }) {
         </header>
 
         <div className="contract-modal-body">
-          {isLoading ? (
-            <DataState title="Đang tải hợp đồng" />
-          ) : null}
+          {isLoading ? <DataState title="Đang tải hợp đồng" /> : null}
           {isError ? (
             <DataState
               title="Không tải được hợp đồng"
@@ -82,6 +90,7 @@ export function ContractDetailModal({ contractId, onClose }) {
                     <thead>
                       <tr>
                         <th>Loại dịch vụ</th>
+                        <th>Số lượng</th>
                         <th>Đơn vị</th>
                         <th>Đơn giá</th>
                         <th>Thành tiền</th>
@@ -91,10 +100,13 @@ export function ContractDetailModal({ contractId, onClose }) {
                       {contract.services.map((service) => (
                         <tr key={service.id}>
                           <td>{service.service_name}</td>
-                          <td>{service.service_unit}</td>
-                          <td>{formatContractCurrency(service.service_price)} d</td>
                           <td>
-                            <strong>{formatContractCurrency(getContractLineTotal(service))} d</strong>
+                            <strong>{service.quantity}</strong>
+                          </td>
+                          <td>{service.service_unit}</td>
+                          <td>{formatContractCurrency(service.service_price)} đ</td>
+                          <td>
+                            <strong>{formatContractCurrency(getContractLineTotal(service))} đ</strong>
                           </td>
                         </tr>
                       ))}
@@ -107,9 +119,14 @@ export function ContractDetailModal({ contractId, onClose }) {
                 <p>Điều khoản: {contract.payment_terms}</p>
                 <div>
                   <span>Tổng giá trị hợp đồng</span>
-                  <strong>{formatContractCurrency(contract.total_value)} d</strong>
+                  <strong>{formatContractCurrency(contract.total_value)} đ</strong>
                 </div>
               </section>
+              {submitContract.isError ? (
+                <p className="contract-create-error">
+                  {submitContract.error?.message ?? "Không gửi duyệt được hợp đồng."}
+                </p>
+              ) : null}
             </>
           ) : null}
         </div>
@@ -123,9 +140,20 @@ export function ContractDetailModal({ contractId, onClose }) {
             <button className="button secondary" type="button" onClick={onClose}>
               Hủy bỏ
             </button>
-            <button className="button" type="button" disabled>
-              <Edit3 size={16} />
-              Chỉnh sửa
+            {canEditDraft ? (
+              <button className="button secondary" type="button" onClick={handleEdit}>
+                <Edit3 size={16} />
+                Chỉnh sửa
+              </button>
+            ) : null}
+            <button
+              className="button"
+              type="button"
+              disabled={!canEditDraft || submitContract.isPending}
+              onClick={() => submitContract.mutate(contract.contract_id)}
+            >
+              <Send size={16} />
+              Gửi duyệt
             </button>
           </div>
         </footer>

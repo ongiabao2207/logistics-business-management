@@ -4,6 +4,8 @@ import { ApprovalTasksPage } from "../features/approvals/pages/ApprovalTasksPage
 import { CustomerListPage } from "../features/customers/pages/CustomerListPage.jsx";
 import { DashboardPage } from "../features/dashboard/pages/DashboardPage.jsx";
 import { IdentityLoginPage } from "../features/identity/pages/IdentityLoginPage.jsx";
+import { ContractCreatePage } from "../features/contracts/pages/ContractCreatePage.jsx";
+import { ContractEditPage } from "../features/contracts/pages/ContractEditPage.jsx";
 import { ContractListPage } from "../features/contracts/pages/ContractListPage.jsx";
 import { NotificationListPage } from "../features/notifications/pages/NotificationListPage.jsx";
 import { PaymentListPage } from "../features/payments/pages/PaymentListPage.jsx";
@@ -20,6 +22,8 @@ export const router = createBrowserRouter([
       { path: "identity", element: <IdentityLoginPage /> },
       { path: "customers", element: <CustomerListPage /> },
       { path: "contracts", element: <ContractListPage /> },
+      { path: "contracts/new", element: <ContractCreatePage /> },
+      { path: "contracts/:contractId/edit", element: <ContractEditPage /> },
       { path: "prices", element: <PriceListPage /> },
       { path: "production", element: <ProductionPeriodListPage /> },
       { path: "payments", element: <PaymentListPage /> },
