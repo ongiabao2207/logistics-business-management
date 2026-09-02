@@ -125,7 +125,11 @@ A new price-list version must be created instead.
 
 ### PRC-06 — Rejected Price Lists
 
-A `REJECTED` price list may be edited and submitted again when permitted by the designed workflow.
+A `REJECTED` price list may be updated. Saving the revision returns it to `DRAFT`,
+after which it may be submitted for approval again.
+
+Only a `DRAFT` price list may be deleted. Price lists in all other states are read-only,
+except for the revision of a `REJECTED` price list described above.
 
 ---
 
