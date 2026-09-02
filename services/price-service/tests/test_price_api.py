@@ -53,6 +53,7 @@ def test_create_list_and_deactivate_service(client):
     assert updated_list.json()[0]["is_active"] is False
 
 
+
 def test_service_active_status_is_generated_by_system(client):
     response = client.post(
         "/api/v1/services",

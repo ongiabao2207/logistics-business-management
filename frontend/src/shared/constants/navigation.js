@@ -1,6 +1,5 @@
 import {
   Bell,
-  BriefcaseBusiness,
   ClipboardCheck,
   CreditCard,
   Factory,
@@ -10,17 +9,18 @@ import {
   Tags,
   Users,
 } from "lucide-react";
+import { MODULE_ROLES } from "../../features/identity/constants/permissions";
 
 export const navigationItems = [
-  { label: "Dashboard", path: "/", icon: Home },
-  { label: "Identity", path: "/identity", icon: KeyRound },
-  { label: "Customers", path: "/customers", icon: Users },
-  { label: "Contracts", path: "/contracts", icon: FileText },
-  { label: "Prices", path: "/prices", icon: Tags },
-  { label: "Production", path: "/production", icon: Factory },
-  { label: "Payments", path: "/payments", icon: CreditCard },
-  { label: "Approvals", path: "/approvals", icon: ClipboardCheck },
-  { label: "Notifications", path: "/notifications", icon: Bell },
+  { label: "Tổng quan", path: "/", icon: Home },
+  { label: "Người dùng", path: "/identity", icon: KeyRound, roles: MODULE_ROLES.identity },
+  { label: "Khách hàng", path: "/customers", icon: Users, roles: MODULE_ROLES.customers },
+  { label: "Hợp đồng", path: "/contracts", icon: FileText, roles: MODULE_ROLES.contracts },
+  { label: "Bảng giá", path: "/prices", icon: Tags, roles: MODULE_ROLES.prices },
+  { label: "Sản lượng", path: "/production", icon: Factory, roles: MODULE_ROLES.production },
+  { label: "Thanh toán", path: "/payments", icon: CreditCard, roles: MODULE_ROLES.payments },
+  { label: "Phê duyệt", path: "/approvals", icon: ClipboardCheck, roles: MODULE_ROLES.approvals },
+  { label: "Thông báo", path: "/notifications", icon: Bell },
 ];
 
 export const moduleSummaryItems = [

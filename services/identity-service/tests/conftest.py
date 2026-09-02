@@ -104,6 +104,12 @@ def client():
 
 
 @pytest.fixture
+def db() -> Session:
+    with TestingSession() as session:
+        yield session
+
+
+@pytest.fixture
 def login(client):
     def perform(username: str = "admin", password: str = "AdminPassword123!") -> str:
         response = client.post("/api/v1/auth/login", json={"username": username, "password": password})

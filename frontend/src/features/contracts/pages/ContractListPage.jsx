@@ -4,6 +4,8 @@ import { DataState } from "../../../shared/components/DataState.jsx";
 import { PageHeader } from "../../../shared/components/PageHeader.jsx";
 import { StatusBadge } from "../../../shared/components/StatusBadge.jsx";
 import { usePageTitle } from "../../../shared/hooks/usePageTitle";
+import { ROLES } from "../../identity/constants/permissions";
+import { useAuth } from "../../identity/hooks/useAuth";
 
 const sampleContracts = [
   { id: "CTR-SAMPLE", number: "CTR-0001", customer: "Sample Customer", status: "DRAFT" },
@@ -11,6 +13,7 @@ const sampleContracts = [
 
 export function ContractListPage() {
   usePageTitle("Contracts");
+  const { user } = useAuth();
 
   return (
     <>
@@ -18,12 +21,12 @@ export function ContractListPage() {
         eyebrow="Contract Service"
         title="Contracts"
         description="Create drafts, submit approval requests, and monitor contract lifecycle states."
-        actions={
+        actions={user.role === ROLES.SALE ? (
           <button className="button" type="button">
             <Plus size={16} />
             Contract
           </button>
-        }
+        ) : null}
       />
 
       {sampleContracts.length ? (
