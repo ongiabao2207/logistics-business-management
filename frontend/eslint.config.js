@@ -5,7 +5,7 @@ import globals from "globals";
 
 export default [
   {
-    ignores: ["dist"],
+    ignores: ["dist", ".vite"],
   },
   js.configs.recommended,
   {

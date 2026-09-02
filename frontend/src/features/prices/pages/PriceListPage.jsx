@@ -19,7 +19,7 @@ export function PriceListPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const canManage = user.role === ROLES.SALE;
-  const canApprove = user.role === ROLES.DIRECTOR;
+  const canApprove = [ROLES.LEGAL, ROLES.DIRECTOR].includes(user.role);
   const [tab, setTab] = useState("prices");
   const [view, setView] = useState("list");
   const [query, setQuery] = useState("");
@@ -60,7 +60,7 @@ export function PriceListPage() {
   if (view === "create" && canManage) return <PriceCreateForm form={priceForm} setForm={setPriceForm} services={services} serviceMap={serviceMap} updateDetail={updateDetail} mutation={createPrice} submit={submitNewPrice} close={() => setView("list")} />;
 
   return <section className="workspace">
-    <div className="workspace-title"><div><span className="breadcrumb">Price Service / Quản lý giá</span><h1>Danh mục dịch vụ & bảng giá</h1><p>Toàn bộ dữ liệu được đọc và ghi qua API Price Service.</p></div>{canManage && <div className="page-actions"><button className="button outline" type="button" onClick={() => setShowServiceModal(true)}><PackagePlus size={18} /> Thêm dịch vụ</button><button className="button primary" type="button" onClick={() => setView("create")}><Plus size={18} /> Tạo bảng giá</button></div>}</div>
+    <div className="workspace-title"><div><span className="breadcrumb">Quản lý kinh doanh / Bảng giá</span><h1>Danh mục dịch vụ & bảng giá</h1><p>Quản lý danh mục dịch vụ, phiên bản bảng giá và thời gian hiệu lực.</p></div>{canManage && <div className="page-actions"><button className="button outline" type="button" onClick={() => setShowServiceModal(true)}><PackagePlus size={18} /> Thêm dịch vụ</button><button className="button primary" type="button" onClick={() => setView("create")}><Plus size={18} /> Tạo bảng giá</button></div>}</div>
     <div className="segmented-tabs"><button className={tab === "prices" ? "is-active" : ""} type="button" onClick={() => setTab("prices")}>Bảng giá ({priceLists.length})</button><button className={tab === "services" ? "is-active" : ""} type="button" onClick={() => setTab("services")}>Danh mục dịch vụ ({services.length})</button><button className={tab === "effective" ? "is-active" : ""} type="button" onClick={() => setTab("effective")}>Tra cứu giá hiệu lực</button></div>
     {tab === "prices" && <PriceListTab rows={rows} query={query} setQuery={setQuery} status={status} setStatus={setStatus} canManage={canManage} canApprove={canApprove} openPrice={openPrice} submitPrice={submitPrice} approvePrice={approvePrice} rejectPrice={rejectPrice} />}
     {tab === "services" && <ServiceTab services={services} canManage={canManage} deactivate={deactivateService} openCreate={() => setShowServiceModal(true)} />}

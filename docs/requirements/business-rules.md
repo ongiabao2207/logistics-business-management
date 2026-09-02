@@ -200,23 +200,17 @@ The system must allow the signing process to be retried when appropriate.
 
 ## 6. Approval Rules
 
-Approval workflows are configurable by document type.
+Approval is handled directly by the service that owns each business document. The standalone Approval Service is not used.
 
-A workflow must not be implemented as a fixed sequence of hard-coded `if/else` conditions.
+### APR-01 — Reviewer Authorization
 
-Different document types may use different approval steps.
-
-The sample approval flow in the project data is an example, not a universal workflow.
-
-### APR-01 — Current Assignee Authorization
-
-Only the user assigned to the current approval step may:
+Users with `ROLE_LEGAL` or `ROLE_DIRECTOR` may:
 
 - approve;
 - reject;
 - request revision.
 
-Role validation alone is not sufficient.
+The owning service validates the document is currently in a reviewable state.
 
 ### APR-02 — Approval Step Ordering
 

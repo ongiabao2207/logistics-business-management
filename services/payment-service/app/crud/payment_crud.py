@@ -214,7 +214,7 @@ class PaymentCrud:
         self,
         db: Session,
         payment: Payment,
-        approval_instance_id: str,
+        approval_instance_id: str | None,
     ) -> Payment:
         payment.status = PaymentStatus.PENDING_APPROVAL
         payment.approval_instance_id = approval_instance_id

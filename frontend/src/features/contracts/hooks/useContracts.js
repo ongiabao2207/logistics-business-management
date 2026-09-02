@@ -6,6 +6,5 @@ export function useContracts() {
   return useQuery({
     queryKey: ["contracts"],
     queryFn: contractApi.listContracts,
-    enabled: false,
   });
 }

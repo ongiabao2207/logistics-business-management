@@ -52,7 +52,11 @@ export function IdentityLoginPage() {
 }
 
 function ModalHeader({ icon, title, description, close }) { return <div className="modal-heading"><div><span className="metric-icon blue">{icon}</span><div><h2>{title}</h2><p>{description}</p></div></div><button className="modal-close" type="button" onClick={close}>×</button></div>; }
-function Field({ label, type = "text", value, change }) { return <label><span>{label} <em>*</em></span><input type={type} minLength={type === "password" ? 8 : undefined} value={value} onChange={(event) => change(event.target.value)} required /></label>; }
+function Field({ label, type = "text", value, change }) {
+  const isPassword = type === "password";
+  const isUsername = label === "Tên đăng nhập";
+  return <label><span>{label} <em>*</em></span><input type={type} minLength={isPassword ? 8 : isUsername ? 3 : undefined} maxLength={isPassword ? 128 : isUsername ? 100 : undefined} pattern={isUsername ? "[a-zA-Z0-9._-]+" : undefined} title={isUsername ? "Chỉ dùng chữ cái không dấu, số, dấu chấm, gạch dưới hoặc gạch ngang" : undefined} value={value} onChange={(event) => change(event.target.value)} required /></label>;
+}
 function RoleSelect({ roles, value, change }) { return <label><span>Vai trò <em>*</em></span><select value={value} onChange={(event) => change(event.target.value)} required>{roles.map((role) => <option value={role.id} key={role.id}>{ROLE_LABELS[role.name] ?? role.name}</option>)}</select></label>; }
 function MutationError({ mutation }) { return mutation.isError ? <p className="form-error">{mutation.error.message}</p> : null; }
 function ModalActions({ close, pending, label }) { return <div className="modal-actions"><button className="button ghost" type="button" onClick={close}>Hủy</button><button className="button navy" type="submit" disabled={pending}>{pending ? "Đang lưu..." : label}</button></div>; }

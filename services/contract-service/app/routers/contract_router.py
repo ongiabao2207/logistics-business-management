@@ -13,6 +13,7 @@ from app.schemas.contract_schema import (
     ContractRead,
     ContractSummaryRead,
     ContractStatusUpdate,
+    ContractReview,
     ContractUpdate,
 )
 from app.services.contract_service import (
@@ -109,6 +110,22 @@ def update_contract_status(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         )
+
+
+@router.post("/{contract_id}/review", response_model=ContractDetailRead)
+def review_contract(
+    contract_id: str,
+    payload: ContractReview,
+    _current_user: Annotated[CurrentUser, Depends(require_roles("ROLE_LEGAL", "ROLE_DIRECTOR"))],
+    db: Session = Depends(get_db),
+    service: ContractService = Depends(get_contract_service),
+):
+    try:
+        return service.review_contract(db, contract_id, payload.decision)
+    except ContractNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except InvalidContractStatusTransitionError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
 
 @router.patch("/{contract_id}", response_model=ContractDetailRead)

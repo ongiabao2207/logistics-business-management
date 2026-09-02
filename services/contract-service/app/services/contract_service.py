@@ -76,7 +76,9 @@ class ContractService:
     _create_contract_endpoint = "POST /api/v1/contracts"
     _allowed_status_transitions = {
         "DRAFT": {"SUBMITTED"},
-        "SUBMITTED": {"ACTIVE"},
+        "SUBMITTED": {"APPROVED", "REJECTED"},
+        "APPROVED": {"ACTIVE"},
+        "REJECTED": {"SUBMITTED"},
         "ACTIVE": {"EXPIRED"},
         "EXPIRED": set(),
     }
@@ -144,6 +146,12 @@ class ContractService:
         self._validate_status_transition(contract.status, status_in.status)
         updated_contract = self.crud.update_status(db, contract, status_in.status)
         return self._to_detail(updated_contract)
+
+    def review_contract(self, db: Session, contract_id: str, decision: str) -> ContractDetailRead:
+        contract = self._get_contract_or_raise(db, contract_id)
+        target_status = "APPROVED" if decision == "APPROVE" else "REJECTED"
+        self._validate_status_transition(contract.status, target_status)
+        return self._to_detail(self.crud.update_status(db, contract, target_status))
 
     def update_contract(
         self,

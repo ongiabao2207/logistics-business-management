@@ -173,7 +173,7 @@ docker compose up -d `
   production-service `
   payment-service
 
-- Chạy fontend
+- Chạy frontend
 cd D:\logistics-business-management\frontend
 npm install
 npm run dev

@@ -1,9 +1,14 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.production_model import ProductionPeriodStatus
+
+
+class ProductionReview(BaseModel):
+    decision: Literal["APPROVE", "REJECT"]
 
 
 class ProductionDetailInput(BaseModel):

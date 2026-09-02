@@ -1,38 +1,7 @@
-import { Calculator, Plus } from "lucide-react";
-
-import { DataState } from "../../../shared/components/DataState.jsx";
-import { PageHeader } from "../../../shared/components/PageHeader.jsx";
+import { ReviewWorkspace } from "../../../shared/components/ReviewWorkspace.jsx";
 import { usePageTitle } from "../../../shared/hooks/usePageTitle";
-import { ROLES } from "../../identity/constants/permissions";
+import { REVIEW_ROLES, ROLES } from "../../identity/constants/permissions";
 import { useAuth } from "../../identity/hooks/useAuth";
-
-export function PaymentListPage() {
-  usePageTitle("Payments");
-  const { user } = useAuth();
-
-  return (
-    <>
-      <PageHeader
-        eyebrow="Payment Service"
-        title="Payments"
-        description="Preview statements, create payment records, submit approvals, and track adjustments."
-        actions={user.role === ROLES.ACCOUNTANT ? (
-          <>
-            <button className="button secondary" type="button">
-              <Calculator size={16} />
-              Preview
-            </button>
-            <button className="button" type="button">
-              <Plus size={16} />
-              Payment
-            </button>
-          </>
-        ) : null}
-      />
-      <DataState
-        title="Payment workspace ready"
-        description="The API wrapper maps to the implemented Payment Service /payments routes."
-      />
-    </>
-  );
-}
+import { paymentApi } from "../api/paymentApi";
+const config = { queryKey: ["payments"], eyebrow: "Payment Service", title: "Quản lý bảng thanh toán", description: "Danh sách, chi tiết và xử lý bảng thanh toán theo vai trò.", listTitle: "Danh sách bảng thanh toán", list: () => paymentApi.listPayments({ limit: 100 }), detail: paymentApi.getPayment, review: paymentApi.reviewPayment, getId: (x) => x.id, reviewable: (x) => x.status === "PENDING_APPROVAL", columns: [{ key: "id", label: "Mã thanh toán" }, { key: "contract_id", label: "Hợp đồng" }, { key: "period_start", label: "Từ ngày" }, { key: "period_end", label: "Đến ngày" }, { key: "total_amount", label: "Tổng tiền", render: (x) => Number(x.total_amount ?? 0).toLocaleString("vi-VN") }, { key: "status", label: "Trạng thái" }], detailTitle: "Chi tiết bảng thanh toán", detailFields: (x) => [{ label: "Mã thanh toán", value: x.id }, { label: "Khách hàng", value: x.customer_id }, { label: "Hợp đồng", value: x.contract_id }, { label: "Kỳ thanh toán", value: `${x.period_start} – ${x.period_end}` }, { label: "Tổng tiền", value: Number(x.total_amount ?? 0).toLocaleString("vi-VN") }, { label: "Trạng thái", value: x.status }] };
+export function PaymentListPage() { usePageTitle("Quản lý bảng thanh toán"); const { user } = useAuth(); return <ReviewWorkspace config={config} canCreate={user.role === ROLES.ACCOUNTANT} canReview={REVIEW_ROLES.includes(user.role)} />; }

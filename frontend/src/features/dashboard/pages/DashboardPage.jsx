@@ -1,4 +1,4 @@
-import { ArrowRight, ClipboardCheck, CreditCard, Factory, FileText, KeyRound, Tags, Users } from "lucide-react";
+import { ArrowRight, CreditCard, Factory, FileText, KeyRound, Tags } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { hasRole, ROLE_LABELS, ROLES } from "../../identity/constants/permissions";
@@ -16,12 +16,10 @@ const roleMessages = {
 
 const modules = [
   { title: "Người dùng & phân quyền", description: "Quản lý tài khoản và vai trò hệ thống", path: "/identity", icon: KeyRound, roles: [ROLES.ADMIN], stat: "48 tài khoản" },
-  { title: "Khách hàng", description: "Tra cứu và cập nhật hồ sơ khách hàng", path: "/customers", icon: Users, roles: [ROLES.SALE], stat: "126 khách hàng" },
-  { title: "Hợp đồng", description: "Theo dõi vòng đời và trạng thái hợp đồng", path: "/contracts", icon: FileText, roles: [ROLES.SALE, ROLES.LEGAL, ROLES.DIRECTOR, ROLES.ACCOUNTANT], stat: "18 đang xử lý" },
-  { title: "Bảng giá", description: "Quản lý phiên bản và thời gian hiệu lực", path: "/prices", icon: Tags, roles: [ROLES.SALE, ROLES.ACCOUNTANT, ROLES.LEGAL, ROLES.DIRECTOR], stat: "6 phiên bản" },
-  { title: "Sản lượng", description: "Đối soát dữ liệu vận hành theo kỳ", path: "/production", icon: Factory, roles: [ROLES.OPERATION, ROLES.ACCOUNTANT], stat: "4 kỳ hiện tại" },
+  { title: "Hợp đồng", description: "Quản lý, xem chi tiết và xử lý hợp đồng", path: "/contracts", icon: FileText, roles: [ROLES.SALE, ROLES.LEGAL, ROLES.DIRECTOR], stat: "Danh sách hợp đồng" },
+  { title: "Bảng giá", description: "Quản lý, xem chi tiết và xử lý bảng giá", path: "/prices", icon: Tags, roles: [ROLES.SALE, ROLES.LEGAL, ROLES.DIRECTOR], stat: "Danh sách bảng giá" },
+  { title: "Sản lượng", description: "Quản lý, xem chi tiết và xử lý sản lượng", path: "/production", icon: Factory, roles: [ROLES.OPERATION, ROLES.LEGAL, ROLES.DIRECTOR], stat: "Danh sách kỳ sản lượng" },
   { title: "Thanh toán", description: "Lập và kiểm tra bảng thanh toán", path: "/payments", icon: CreditCard, roles: [ROLES.ACCOUNTANT, ROLES.DIRECTOR, ROLES.LEGAL], stat: "9 hồ sơ" },
-  { title: "Phê duyệt", description: "Xử lý nhiệm vụ được phân công", path: "/approvals", icon: ClipboardCheck, roles: [ROLES.SALE, ROLES.ACCOUNTANT, ROLES.LEGAL, ROLES.DIRECTOR], stat: "3 chờ xử lý" },
 ];
 
 export function DashboardPage() {
