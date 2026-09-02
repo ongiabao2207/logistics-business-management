@@ -145,12 +145,48 @@
 }
 
 .contract-date-inputs label {
-  gap: 8px;
+  gap: 6px;
 }
 
 .contract-date-inputs input {
   min-width: 0;
   width: 100%;
+  font-size: 14px;
+}
+
+.contract-date-picker-field {
+  position: relative;
+}
+
+.contract-date-picker-field > svg {
+  flex: 0 0 auto;
+}
+
+.contract-date-picker-field button {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #172033;
+  cursor: pointer;
+}
+
+.contract-date-picker-field button:hover {
+  background: #e9edf5;
+}
+
+.contract-native-date-input {
+  position: absolute;
+  right: 12px;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .contract-status-options {
@@ -719,6 +755,56 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+
+.contract-create-date-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid #cfd8e3;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.contract-create-date-control input[type="text"],
+.contract-create-date-control input:not([type]) {
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  padding-right: 46px;
+}
+
+.contract-create-date-control button {
+  position: absolute;
+  right: 12px;
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #172033;
+  cursor: pointer;
+}
+
+.contract-create-date-control button:hover {
+  background: #e9edf5;
+}
+
+.contract-create-date-control .contract-native-date-input {
+  position: absolute;
+  right: 12px;
+  bottom: 0;
+  width: 1px;
+  min-height: 1px;
+  height: 1px;
+  border: 0;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .contract-customer-note,

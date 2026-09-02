@@ -1,14 +1,58 @@
+import { useRef } from "react";
 import { CalendarDays, Search } from "lucide-react";
 
 import { CONTRACT_STATUS_OPTIONS } from "./contractDisplay";
+import {
+  formatDateInput,
+  formatIsoDateToDisplay,
+  parseDisplayDateToIso,
+} from "./contractFormUtils";
 
-function formatDateInput(value) {
-  const digits = value.replace(/\D/g, "").slice(0, 8);
-  const day = digits.slice(0, 2);
-  const month = digits.slice(2, 4);
-  const year = digits.slice(4, 8);
+function DatePickerInput({ value, onChange, ariaLabel }) {
+  const dateInputRef = useRef(null);
+  const isoValue = parseDisplayDateToIso(value) ?? "";
 
-  return [day, month, year].filter(Boolean).join("/");
+  function openPicker() {
+    const picker = dateInputRef.current;
+
+    if (!picker) {
+      return;
+    }
+
+    if (picker.showPicker) {
+      picker.showPicker();
+      return;
+    }
+
+    picker.focus();
+    picker.click();
+  }
+
+  return (
+    <label className="contract-date-picker-field">
+      <CalendarDays size={15} />
+      <input
+        type="text"
+        inputMode="numeric"
+        value={value}
+        onChange={(event) => onChange(formatDateInput(event.target.value))}
+        placeholder="dd/mm/yyyy"
+        maxLength={10}
+        aria-label={ariaLabel}
+      />
+      <button type="button" aria-label={`Chọn ${ariaLabel.toLowerCase()}`} onClick={openPicker}>
+        <CalendarDays size={15} />
+      </button>
+      <input
+        ref={dateInputRef}
+        className="contract-native-date-input"
+        type="date"
+        tabIndex={-1}
+        value={isoValue}
+        onChange={(event) => onChange(formatIsoDateToDisplay(event.target.value))}
+      />
+    </label>
+  );
 }
 
 export function ContractFilters({ customers, filters, onChange }) {
@@ -45,34 +89,16 @@ export function ContractFilters({ customers, filters, onChange }) {
         <div className="contract-filter-card contract-date-card" role="group" aria-label="Thời gian">
           <span>Thời gian</span>
           <div className="contract-date-inputs">
-            <label>
-              <CalendarDays size={15} />
-              <input
-                type="text"
-                inputMode="numeric"
-                value={filters.from}
-                onChange={(event) =>
-                  onChange({ from: formatDateInput(event.target.value) })
-                }
-                placeholder="dd/mm/yyyy"
-                maxLength={10}
-                aria-label="Từ ngày"
-              />
-            </label>
-            <label>
-              <CalendarDays size={15} />
-              <input
-                type="text"
-                inputMode="numeric"
-                value={filters.to}
-                onChange={(event) =>
-                  onChange({ to: formatDateInput(event.target.value) })
-                }
-                placeholder="dd/mm/yyyy"
-                maxLength={10}
-                aria-label="Đến ngày"
-              />
-            </label>
+            <DatePickerInput
+              value={filters.from}
+              ariaLabel="Từ ngày"
+              onChange={(from) => onChange({ from })}
+            />
+            <DatePickerInput
+              value={filters.to}
+              ariaLabel="Đến ngày"
+              onChange={(to) => onChange({ to })}
+            />
           </div>
         </div>
 
