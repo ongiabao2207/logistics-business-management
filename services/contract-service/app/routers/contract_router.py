@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.clients.customer_client import CustomerClient, get_customer_client
+from app.clients.customer_client import get_customer_client
 from app.clients.price_client import get_price_client
 from app.core.auth import CurrentUser, get_current_user, require_roles
 from app.db.session import get_db
@@ -24,6 +24,7 @@ from app.services.contract_service import (
     ContractValidationError,
     CustomerInactiveError,
     CustomerNotFoundError,
+    CustomerServiceDependencyError,
     IdempotencyConflictError,
     InvalidContractStatusTransitionError,
     PriceServiceDependencyError,
@@ -33,11 +34,10 @@ router = APIRouter(prefix="/contracts", tags=["contracts"])
 
 
 def get_contract_service(
-    customer_client: CustomerClient = Depends(get_customer_client),
     current_user: CurrentUser = Depends(get_current_user),
 ) -> ContractService:
     return ContractService(
-        customer_client=customer_client,
+        customer_client=get_customer_client(current_user.access_token),
         price_client=get_price_client(current_user.access_token),
     )
 
@@ -48,7 +48,12 @@ def list_contracts(
     db: Session = Depends(get_db),
     service: ContractService = Depends(get_contract_service),
 ):
-    return service.list_contracts(db)
+    try:
+        return service.list_contracts(db)
+    except CustomerServiceDependencyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        )
 
 
 @router.post(
@@ -76,6 +81,10 @@ def create_contract(
     except CustomerInactiveError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
+    except CustomerServiceDependencyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
         )
     except IdempotencyConflictError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
@@ -148,6 +157,10 @@ def get_contract_detail(
         return service.get_contract_detail(db, contract_id)
     except ContractNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except CustomerServiceDependencyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        )
     except ContractValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)

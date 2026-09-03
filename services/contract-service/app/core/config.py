@@ -8,6 +8,10 @@ class Settings:
     app_name: str
     database_url: str
     customer_client_mode: str
+    customer_service_url: str
+    customer_client_timeout_seconds: float
+    customer_cache_enabled: bool
+    customer_cache_ttl_seconds: int
     price_client_mode: str
     price_service_url: str
     price_client_timeout_seconds: float
@@ -28,6 +32,20 @@ def get_settings() -> Settings:
             "postgresql+psycopg://contract_user:contract_password@localhost:5432/contract_db",
         ),
         customer_client_mode=os.getenv("CONTRACT_SERVICE_CUSTOMER_CLIENT_MODE", "fake"),
+        customer_service_url=os.getenv(
+            "CONTRACT_SERVICE_CUSTOMER_SERVICE_URL",
+            "http://localhost:8006/api/v1",
+        ),
+        customer_client_timeout_seconds=float(
+            os.getenv("CONTRACT_SERVICE_CUSTOMER_CLIENT_TIMEOUT_SECONDS", "5")
+        ),
+        customer_cache_enabled=os.getenv(
+            "CONTRACT_SERVICE_CUSTOMER_CACHE_ENABLED", "false"
+        ).lower()
+        == "true",
+        customer_cache_ttl_seconds=int(
+            os.getenv("CONTRACT_SERVICE_CUSTOMER_CACHE_TTL_SECONDS", "1800")
+        ),
         price_client_mode=os.getenv("CONTRACT_SERVICE_PRICE_CLIENT_MODE", "fake"),
         price_service_url=os.getenv(
             "CONTRACT_SERVICE_PRICE_SERVICE_URL",
