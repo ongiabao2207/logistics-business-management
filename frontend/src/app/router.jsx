@@ -7,7 +7,7 @@ import { DashboardPage } from "../features/dashboard/pages/DashboardPage.jsx";
 import { ContractCreatePage } from "../features/contracts/pages/ContractCreatePage.jsx";
 import { ContractEditPage } from "../features/contracts/pages/ContractEditPage.jsx";
 import { ContractListPage } from "../features/contracts/pages/ContractListPage.jsx";
-import { MODULE_ROLES } from "../features/identity/constants/permissions.js";
+import { MODULE_ROLES, ROLES } from "../features/identity/constants/permissions.js";
 import { IdentityLoginPage } from "../features/identity/pages/IdentityLoginPage.jsx";
 import { LoginPage } from "../features/identity/pages/LoginPage.jsx";
 import { PaymentListPage } from "../features/payments/pages/PaymentListPage.jsx";
@@ -62,7 +62,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "production/new",
-        element: protectedElement(<CreateProductionPeriodPage />, MODULE_ROLES.production),
+        element: protectedElement(<CreateProductionPeriodPage />, [ROLES.OPERATION]),
       },
       {
         path: "payments",

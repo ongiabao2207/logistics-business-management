@@ -74,6 +74,26 @@ def test_locked_period_is_immutable_and_eligible(service: ProductionService) -> 
     assert error.value.status_code == 409
 
 
+def test_accountant_sees_only_locked_periods(service: ProductionService) -> None:
+    draft = service.create_draft(draft_payload(), "operations-1")
+    service.create_draft(
+        draft_payload(
+            from_date=date(2024, 11, 1),
+            to_date=date(2024, 11, 30),
+            details=[ProductionDetailInput(service_code="LOADING", recorded_date=date(2024, 11, 2), quantity="12", unit="CONTAINER")],
+        ),
+        "operations-1",
+    )
+    service.lock_period(draft.id, "operations-1")
+
+    visible = service.list_periods(None, None, "ROLE_ACCOUNTANT")
+
+    assert [period.id for period in visible] == [draft.id]
+    with pytest.raises(HTTPException) as error:
+        service.get_period(2, "ROLE_ACCOUNTANT")
+    assert error.value.status_code == 404
+
+
 def test_rejects_record_outside_period(service: ProductionService) -> None:
     payload = draft_payload(details=[ProductionDetailInput(service_code="LOADING", recorded_date=date(2024, 11, 1), quantity="1", unit="CONTAINER")])
     with pytest.raises(HTTPException) as error:

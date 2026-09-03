@@ -550,6 +550,11 @@
   gap: 14px;
 }
 
+.prod-stats-grid.accountant-summary {
+  grid-template-columns: minmax(0, 360px);
+  max-width: 360px;
+}
+
 .prod-stat-card {
   min-height: 104px;
   gap: 14px;

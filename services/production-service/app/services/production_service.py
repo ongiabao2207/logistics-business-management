@@ -45,14 +45,17 @@ class ProductionService:
             raise
         return production_crud.get_period(self.db, period.id)  # type: ignore[return-value]
 
-    def get_period(self, period_id: int) -> ProductionPeriod:
+    def get_period(self, period_id: int, viewer_role: str | None = None) -> ProductionPeriod:
         period = production_crud.get_period(self.db, period_id)
         if period is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Production period not found")
+        if viewer_role == "ROLE_ACCOUNTANT" and period.status != ProductionPeriodStatus.LOCKED.value:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Production period not found")
         return period
 
-    def list_periods(self, customer_id: str | None, contract_id: str | None) -> list[ProductionPeriod]:
-        return production_crud.list_periods(self.db, customer_id, contract_id)
+    def list_periods(self, customer_id: str | None, contract_id: str | None, viewer_role: str) -> list[ProductionPeriod]:
+        visible_status = ProductionPeriodStatus.LOCKED.value if viewer_role == "ROLE_ACCOUNTANT" else None
+        return production_crud.list_periods(self.db, customer_id, contract_id, visible_status)
 
     def replace_details(self, period_id: int, details: list[ProductionDetailInput]) -> ProductionPeriod:
         period = self.get_period(period_id)

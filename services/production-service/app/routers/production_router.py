@@ -28,7 +28,7 @@ def get_production_service(db: Session = Depends(get_db), contract_client: Contr
 
 
 @router.post("/check-overlap", response_model=OverlapCheckResponse)
-def check_overlap(payload: OverlapCheckRequest, _user: Annotated[CurrentUser, Depends(require_roles("ROLE_OPERATION", "ROLE_ACCOUNTANT"))], service: ProductionService = Depends(get_production_service)) -> OverlapCheckResponse:
+def check_overlap(payload: OverlapCheckRequest, _user: Annotated[CurrentUser, Depends(require_roles("ROLE_OPERATION"))], service: ProductionService = Depends(get_production_service)) -> OverlapCheckResponse:
     conflicts = service.check_overlap(payload.customer_id, payload.contract_id, payload.from_date, payload.to_date)
     return OverlapCheckResponse(overlaps=bool(conflicts), conflicting_period_ids=conflicts)
 
@@ -39,13 +39,13 @@ def create_draft(payload: ProductionPeriodCreate, current_user: Annotated[Curren
 
 
 @router.get("", response_model=list[ProductionPeriodResponse])
-def list_production_periods(_user: Annotated[CurrentUser, Depends(require_roles("ROLE_OPERATION", "ROLE_ACCOUNTANT"))], customer_id: str | None = Query(default=None), contract_id: str | None = Query(default=None), service: ProductionService = Depends(get_production_service)) -> list[ProductionPeriodResponse]:
-    return service.list_periods(customer_id, contract_id)
+def list_production_periods(current_user: Annotated[CurrentUser, Depends(require_roles("ROLE_OPERATION", "ROLE_ACCOUNTANT"))], customer_id: str | None = Query(default=None), contract_id: str | None = Query(default=None), service: ProductionService = Depends(get_production_service)) -> list[ProductionPeriodResponse]:
+    return service.list_periods(customer_id, contract_id, current_user.role)
 
 
 @router.get("/{period_id}", response_model=ProductionPeriodDetailResponse)
-def get_production_period(period_id: int, _user: Annotated[CurrentUser, Depends(require_roles("ROLE_OPERATION", "ROLE_ACCOUNTANT"))], service: ProductionService = Depends(get_production_service)) -> ProductionPeriodDetailResponse:
-    period = service.get_period(period_id)
+def get_production_period(period_id: int, current_user: Annotated[CurrentUser, Depends(require_roles("ROLE_OPERATION", "ROLE_ACCOUNTANT"))], service: ProductionService = Depends(get_production_service)) -> ProductionPeriodDetailResponse:
+    period = service.get_period(period_id, current_user.role)
     return ProductionPeriodDetailResponse(**ProductionPeriodResponse.model_validate(period).model_dump(), totals=service.totals(period))
 
 
