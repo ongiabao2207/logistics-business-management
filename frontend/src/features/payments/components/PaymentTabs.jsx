@@ -1,0 +1,4 @@
+import { FilePenLine, Files } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+const items = [{ to: "/payments", label: "Bảng thanh toán", icon: Files }, { to: "/payments?status=REVISION_REQUESTED", label: "Hồ sơ điều chỉnh", icon: FilePenLine }];
+export function PaymentTabs() { const location = useLocation(); const selectedStatus = new URLSearchParams(location.search).get("status"); return <nav className="payment-tabs">{items.map(({ to, label, icon: Icon }, index) => { const [path, query] = to.split("?"); const active = index === 0 ? location.pathname === path && selectedStatus !== "REVISION_REQUESTED" : location.pathname === path && location.search === `?${query}`; return <Link key={label} to={to} className={`payment-tab${active ? " active" : ""}`}><Icon size={17} />{label}</Link>; })}</nav>; }

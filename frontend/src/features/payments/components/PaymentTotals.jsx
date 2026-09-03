@@ -1,0 +1,2 @@
+const formatVnd = (value) => `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(Number(value))} ₫`;
+export function PaymentTotals({ payment }) { return <div className="pay-totals"><p><span>Tổng tiền chưa thuế</span><strong>{formatVnd(payment.subtotal)}</strong></p><p><span>Tổng tiền thuế (VAT)</span><strong>{formatVnd(payment.tax_amount)}</strong></p><p className="grand"><span>Tổng cộng thanh toán</span><strong>{formatVnd(payment.total_amount)}</strong></p></div>; }

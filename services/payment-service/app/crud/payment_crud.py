@@ -106,13 +106,18 @@ class PaymentCrud:
         db: Session,
         offset: int,
         limit: int,
+        contract_id: str | None = None,
+        period_start: date | None = None,
+        period_end: date | None = None,
     ) -> list[Payment]:
-        statement = (
-            select(Payment)
-            .order_by(Payment.created_at.desc())
-            .offset(offset)
-            .limit(limit)
-        )
+        statement = select(Payment)
+        if contract_id:
+            statement = statement.where(Payment.contract_id == contract_id)
+        if period_start:
+            statement = statement.where(Payment.period_start == period_start)
+        if period_end:
+            statement = statement.where(Payment.period_end == period_end)
+        statement = statement.order_by(Payment.created_at.desc()).offset(offset).limit(limit)
 
         return list(db.scalars(statement).all())
 
@@ -214,7 +219,7 @@ class PaymentCrud:
         self,
         db: Session,
         payment: Payment,
-        approval_instance_id: str,
+        approval_instance_id: str | None,
     ) -> Payment:
         payment.status = PaymentStatus.PENDING_APPROVAL
         payment.approval_instance_id = approval_instance_id

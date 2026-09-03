@@ -1,8 +1,8 @@
+from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy.orm import Session
 
-from app.clients.approvals import ApprovalClient
 from app.clients.contracts import ContractClient
 from app.clients.prices import PriceClient
 from app.clients.production import ProductionClient
@@ -43,14 +43,12 @@ class PaymentService:
         contracts: ContractClient,
         production: ProductionClient,
         prices: PriceClient,
-        approvals: ApprovalClient,
         events: EventPublisher,
     ):
         self.crud = crud
         self.contracts = contracts
         self.production = production
         self.prices = prices
-        self.approvals = approvals
         self.events = events
 
     def preview(
@@ -62,6 +60,8 @@ class PaymentService:
                 contract_id=request.contract_id,
                 customer_id=request.customer_id,
             )
+        except ConnectionError as exc:
+            raise PaymentError(str(exc), 503) from exc
         except LookupError as exc:
             raise PaymentError(
                 str(exc),
@@ -80,11 +80,14 @@ class PaymentService:
                 422,
             )
 
-        records = self.production.get_eligible_records(
-            contract_id=request.contract_id,
-            period_start=request.period_start,
-            period_end=request.period_end,
-        )
+        try:
+            records = self.production.get_eligible_records(
+                contract_id=request.contract_id,
+                period_start=request.period_start,
+                period_end=request.period_end,
+            )
+        except ConnectionError as exc:
+            raise PaymentError(str(exc), 503) from exc
 
         if not records:
             raise PaymentError(
@@ -129,6 +132,8 @@ class PaymentService:
                     service_id=record.service_id,
                     business_date=request.period_end,
                 )
+            except ConnectionError as exc:
+                raise PaymentError(str(exc), 503) from exc
             except LookupError as exc:
                 raise PaymentError(
                     str(exc),
@@ -226,7 +231,78 @@ class PaymentService:
                 409,
             )
 
-        preview = self.preview(request)
+        preview = self.preview(
+            PaymentPeriodRequest(**request.model_dump(exclude={"lines"}))
+        )
+
+        if request.lines is not None:
+            requested_quantities = {
+                line.service_id: line.billing_quantity
+                for line in request.lines
+            }
+            available_ids = {line.service_id for line in preview.lines}
+            unknown_ids = requested_quantities.keys() - available_ids
+            if unknown_ids:
+                raise PaymentError(
+                    f"Services have no confirmed production data: {', '.join(sorted(unknown_ids))}",
+                    422,
+                )
+
+            adjusted_lines: list[PaymentLinePreview] = []
+            for line in preview.lines:
+                if line.service_id not in requested_quantities:
+                    continue
+                billing_quantity = requested_quantities.get(
+                    line.service_id,
+                    line.billing_quantity,
+                )
+                if billing_quantity > line.confirmed_quantity:
+                    raise PaymentError(
+                        f"Sản lượng thanh toán của {line.description} không được lớn hơn sản lượng xác nhận",
+                        422,
+                    )
+                line_amount = (billing_quantity * line.unit_price_snapshot).quantize(
+                    MONEY,
+                    rounding=ROUND_HALF_UP,
+                )
+                tax_amount = (line_amount * line.tax_rate).quantize(
+                    MONEY,
+                    rounding=ROUND_HALF_UP,
+                )
+                adjusted_lines.append(
+                    PaymentLinePreview(
+                        **line.model_dump(
+                            exclude={"billing_quantity", "line_amount", "tax_amount"}
+                        ),
+                        billing_quantity=billing_quantity,
+                        line_amount=line_amount,
+                        tax_amount=tax_amount,
+                    )
+                )
+
+            if not adjusted_lines:
+                raise PaymentError("Bảng thanh toán phải có ít nhất một hạng mục", 422)
+
+            subtotal = sum(
+                (line.line_amount for line in adjusted_lines),
+                Decimal("0"),
+            ).quantize(MONEY, rounding=ROUND_HALF_UP)
+            tax_amount = sum(
+                (line.tax_amount for line in adjusted_lines),
+                Decimal("0"),
+            ).quantize(MONEY, rounding=ROUND_HALF_UP)
+            preview = PaymentPreviewResponse(
+                **preview.model_dump(
+                    exclude={"lines", "subtotal", "tax_amount", "total_amount"}
+                ),
+                lines=adjusted_lines,
+                subtotal=subtotal,
+                tax_amount=tax_amount,
+                total_amount=(subtotal + tax_amount).quantize(
+                    MONEY,
+                    rounding=ROUND_HALF_UP,
+                ),
+            )
 
         try:
             payment = self.crud.create(
@@ -243,6 +319,11 @@ class PaymentService:
                 "total_amount": str(
                     payment.total_amount
                 ),
+                "recipient_role": "ROLE_ACCOUNTANT",
+                "title": "Hồ sơ thanh toán mới đã được tạo",
+                "content": f"Hồ sơ thanh toán {payment.id} đã sẵn sàng để xử lý.",
+                "reference_type": "PAYMENT",
+                "reference_id": payment.id,
             },
         )
 
@@ -271,11 +352,17 @@ class PaymentService:
         db: Session,
         offset: int,
         limit: int,
+        contract_id: str | None = None,
+        period_start: date | None = None,
+        period_end: date | None = None,
     ) -> list[Payment]:
         return self.crud.list(
             db=db,
             offset=offset,
             limit=limit,
+            contract_id=contract_id,
+            period_start=period_start,
+            period_end=period_end,
         )
 
     def recalculate(
@@ -375,11 +462,14 @@ class PaymentService:
                 continue
 
             if production_records is None:
-                production_records = self.production.get_eligible_records(
-                    contract_id=payment.contract_id,
-                    period_start=payment.period_start,
-                    period_end=payment.period_end,
-                )
+                try:
+                    production_records = self.production.get_eligible_records(
+                        contract_id=payment.contract_id,
+                        period_start=payment.period_start,
+                        period_end=payment.period_end,
+                    )
+                except ConnectionError as exc:
+                    raise PaymentError(str(exc), 503) from exc
             record = next(
                 (
                     item
@@ -401,6 +491,8 @@ class PaymentService:
                     service_id=service_id,
                     business_date=payment.period_end,
                 )
+            except ConnectionError as exc:
+                raise PaymentError(str(exc), 503) from exc
             except LookupError as exc:
                 raise PaymentError(str(exc), 422) from exc
 
@@ -558,26 +650,35 @@ class PaymentService:
                 422,
             )
 
-        approval_id = self.approvals.create_workflow(
-            document_id=payment.id,
-            document_type="PAYMENT",
-        )
-
         submitted = self.crud.submit(
             db=db,
             payment=payment,
-            approval_instance_id=approval_id,
+            approval_instance_id=None,
         )
 
         self.events.publish(
             "PaymentSubmitted",
             {
                 "payment_id": submitted.id,
-                "approval_instance_id": approval_id,
+                "approval_instance_id": None,
+                "recipient_role": "ROLE_DIRECTOR",
+                "title": "Hồ sơ thanh toán chờ phê duyệt",
+                "content": f"Hồ sơ thanh toán {submitted.id} đang chờ phê duyệt.",
+                "reference_type": "PAYMENT",
+                "reference_id": submitted.id,
             },
         )
 
         return submitted
+
+    def review(self, db: Session, payment_id: str, decision: str) -> Payment:
+        payment = self.get(db, payment_id)
+        if payment.status != PaymentStatus.PENDING_APPROVAL:
+            raise PaymentError("Only pending payments can be reviewed", 409)
+        payment.status = PaymentStatus.APPROVED if decision == "APPROVE" else PaymentStatus.REJECTED
+        db.commit()
+        db.refresh(payment)
+        return payment
 
     def adjust(
         self,
@@ -590,10 +691,12 @@ class PaymentService:
             payment_id=payment_id,
         )
 
-        if payment.status != PaymentStatus.REVISION_REQUESTED:
+        if payment.status not in {
+            PaymentStatus.REJECTED,
+            PaymentStatus.REVISION_REQUESTED,
+        }:
             raise PaymentError(
-                "Payment can only be adjusted after Approval Service "
-                "requests a revision",
+                "Payment can only be adjusted after rejection or a revision request",
                 409,
             )
 
@@ -603,20 +706,6 @@ class PaymentService:
         ):
             raise PaymentError(
                 "This approval revision request has already been applied",
-                409,
-            )
-
-        try:
-            revision_request = self.approvals.get_revision_request(
-                revision_request_id=data.revision_request_id,
-                document_id=payment.id,
-            )
-        except LookupError as exc:
-            raise PaymentError(str(exc), 422) from exc
-
-        if revision_request.status != "OPEN":
-            raise PaymentError(
-                "Approval revision request is no longer open",
                 409,
             )
 
@@ -637,6 +726,11 @@ class PaymentService:
             {
                 "payment_id": payment.id,
                 "revision_request_id": data.revision_request_id,
+                "recipient_role": "ROLE_ACCOUNTANT",
+                "title": "Hồ sơ thanh toán đã được điều chỉnh",
+                "content": f"Hồ sơ thanh toán {payment.id} đã có điều chỉnh mới.",
+                "reference_type": "PAYMENT",
+                "reference_id": payment.id,
             },
         )
 

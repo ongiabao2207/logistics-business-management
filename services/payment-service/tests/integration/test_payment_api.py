@@ -61,6 +61,22 @@ def test_payment_api_happy_path(client):
     )
 
 
+def test_create_payment_accepts_accountant_billing_quantity(client):
+    create_payload = payload("contract-create-adjusted")
+    create_payload["lines"] = [
+        {"service_id": "CONTAINER_20", "billing_quantity": 10}
+    ]
+
+    response = client.post(BASE, json=create_payload)
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["lines"][0]["confirmed_quantity"] == "12"
+    assert data["lines"][0]["billing_quantity"] == "10"
+    assert data["subtotal"] == "1200000"
+    assert data["total_amount"] == "1320000"
+
+
 def test_accountant_applies_approval_revision_request(client, db_session):
     create_response = client.post(
         BASE,

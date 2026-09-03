@@ -19,12 +19,13 @@ export const ROLE_LABELS = {
 export const MODULE_ROLES = {
   identity: [ROLES.ADMIN],
   customers: [ROLES.SALE],
-  contracts: [ROLES.SALE, ROLES.LEGAL, ROLES.DIRECTOR, ROLES.ACCOUNTANT],
-  prices: [ROLES.SALE, ROLES.ACCOUNTANT, ROLES.LEGAL, ROLES.DIRECTOR],
-  production: [ROLES.OPERATION, ROLES.ACCOUNTANT],
+  contracts: [ROLES.SALE, ROLES.LEGAL, ROLES.DIRECTOR],
+  prices: [ROLES.SALE, ROLES.LEGAL, ROLES.DIRECTOR],
+  production: [ROLES.OPERATION, ROLES.LEGAL, ROLES.DIRECTOR],
   payments: [ROLES.ACCOUNTANT, ROLES.DIRECTOR, ROLES.LEGAL],
-  approvals: [ROLES.SALE, ROLES.ACCOUNTANT, ROLES.LEGAL, ROLES.DIRECTOR],
 };
+
+export const REVIEW_ROLES = [ROLES.LEGAL, ROLES.DIRECTOR];
 
 export function hasRole(user, allowedRoles) {
   return Boolean(user?.role && allowedRoles.includes(user.role));

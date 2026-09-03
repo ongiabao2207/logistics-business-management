@@ -1,0 +1,9 @@
+import { CalendarDays, Info, Search } from "lucide-react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { PaymentBreadcrumb } from "../components/PaymentBreadcrumb.jsx";
+
+export function PaymentSearchPage() {
+  const now = new Date(); const navigate = useNavigate(); const [year, setYear] = useState(String(now.getFullYear())); const [month, setMonth] = useState(String(now.getMonth() + 1));
+  return <><PaymentBreadcrumb items={[{ label: "Lập bảng thanh toán" }]} /><div className="pay-intro"><h2>Chọn kỳ thanh toán</h2><p>Chọn năm và kỳ cần lập bảng thanh toán cho doanh nghiệp.</p></div><section className="pay-search-period"><div className="pay-search-fields"><label className="pay-field"><span>Năm thanh toán</span><div className="with-icon"><CalendarDays size={15} /><select value={year} onChange={(event) => setYear(event.target.value)}>{[0,1,2,3].map((offset) => <option key={offset}>{now.getFullYear() - offset}</option>)}</select></div><small>Chọn năm tài chính áp dụng</small></label><label className="pay-field"><span>Kỳ thanh toán</span><div className="with-icon"><CalendarDays size={15} /><select value={month} onChange={(event) => setMonth(event.target.value)}>{Array.from({ length: 12 }, (_, index) => <option value={index + 1} key={index}>Tháng {index + 1}</option>)}</select></div><small>Chọn một trong 12 kỳ thanh toán theo tháng</small></label></div><div className="pay-search-footer"><button className="pay-button primary" onClick={() => navigate(`/payments/periods/${year}-${month}/customers`)}><Search size={16} />Tiếp tục</button></div></section><section className="pay-tip-grid"><article className="blue"><Info size={20} /><div><strong>Hướng dẫn lập bảng</strong><p>Chọn Năm và Kỳ thanh toán, sau đó tiếp tục để xem các khách hàng đủ điều kiện lập bảng.</p></div></article></section><div className="pay-engine-status"><span>System engine status: active</span></div></>;
+}

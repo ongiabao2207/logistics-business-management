@@ -6,6 +6,18 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      "/api/v1/auth": "http://localhost:8005",
+      "/api/v1/accounts": "http://localhost:8005",
+      "/api/v1/roles": "http://localhost:8005",
+
+      "/api/v1/contracts": "http://localhost:8001",
+
+      "/api/v1/services": "http://localhost:8002",
+      "/api/v1/price-lists": "http://localhost:8002",
+
+      "/api/v1/production-periods": "http://localhost:8003",
+
+      "/api/v1/payments": "http://localhost:8004",
       "/api": {
         target: "http://127.0.0.1",
         changeOrigin: true,
