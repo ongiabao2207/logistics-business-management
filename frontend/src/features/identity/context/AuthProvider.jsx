@@ -34,7 +34,17 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  useEffect(() => { loadCurrentUser(); }, [loadCurrentUser]);
+  useEffect(() => {
+    loadCurrentUser();
+
+    function handleUnauthenticated() {
+      setUser(null);
+      setIsLoading(false);
+    }
+
+    window.addEventListener("logistics:unauthenticated", handleUnauthenticated);
+    return () => window.removeEventListener("logistics:unauthenticated", handleUnauthenticated);
+  }, [loadCurrentUser]);
 
   const value = useMemo(() => ({
     user,
