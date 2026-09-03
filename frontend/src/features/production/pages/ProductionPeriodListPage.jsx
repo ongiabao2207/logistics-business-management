@@ -1,280 +1,137 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, Filter, Lock, FileText, Eye, CheckCircle2, AlertCircle } from "lucide-react";
+import { AlertCircle, CheckCircle2, ClipboardList, Eye, FileText, Lock, Plus, Search, SlidersHorizontal } from "lucide-react";
 
 import { PageHeader } from "../../../shared/components/PageHeader.jsx";
 import { usePageTitle } from "../../../shared/hooks/usePageTitle";
-import { productionApi } from "../api/productionApi";
-import { SAMPLE_CUSTOMERS } from "../constants/productionConstants";
 import { ProductionPeriodDetailModal } from "../components/ProductionPeriodDetailModal.jsx";
 import { LockConfirmationModal } from "../components/LockConfirmationModal.jsx";
-
+import { productionApi } from "../api/productionApi";
+import { SAMPLE_CUSTOMERS } from "../constants/productionConstants";
 import "../styles/production.css";
 
 export function ProductionPeriodListPage() {
-  usePageTitle("Production Periods");
+  usePageTitle("Quản lý sản lượng");
   const navigate = useNavigate();
-
   const [periods, setPeriods] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Filters
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL"); // ALL | DRAFT | LOCKED
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const [customerFilter, setCustomerFilter] = useState("ALL");
-
-  // Modal states
   const [selectedDetailPeriodId, setSelectedDetailPeriodId] = useState(null);
   const [periodToLock, setPeriodToLock] = useState(null);
 
-  useEffect(() => {
-    fetchPeriods();
-  }, []);
-
-  const fetchPeriods = async () => {
+  async function fetchPeriods() {
     setIsLoading(true);
     try {
-      const data = await productionApi.listProductionPeriods();
-      setPeriods(data || []);
-    } catch (err) {
-      console.error("Lỗi tải danh sách kỳ sản lượng:", err);
+      setPeriods((await productionApi.listProductionPeriods()) || []);
+    } catch (error) {
+      console.error("Lỗi tải danh sách kỳ sản lượng:", error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }
 
-  // KPI Statistics
-  const draftCount = useMemo(() => periods.filter((p) => p.status === "DRAFT").length, [periods]);
-  const lockedCount = useMemo(() => periods.filter((p) => p.status === "LOCKED").length, [periods]);
+  useEffect(() => { fetchPeriods(); }, []);
 
-  // Filtered List
-  const filteredPeriods = useMemo(() => {
-    return periods.filter((p) => {
-      // Status filter
-      if (statusFilter !== "ALL" && p.status !== statusFilter) {
-        return false;
-      }
-      // Customer filter
-      if (customerFilter !== "ALL" && p.customer_id !== customerFilter) {
-        return false;
-      }
-      // Search term filter
-      if (searchTerm.trim() !== "") {
-        const term = searchTerm.toLowerCase();
-        const matchId = String(p.id).toLowerCase().includes(term);
-        const matchCustomer = (p.customer_name || p.customer_id || "").toLowerCase().includes(term);
-        const matchContract = (p.contract_id || "").toLowerCase().includes(term);
-        const matchName = (p.period_name || "").toLowerCase().includes(term);
-        return matchId || matchCustomer || matchContract || matchName;
-      }
-      return true;
-    });
-  }, [periods, statusFilter, customerFilter, searchTerm]);
+  const draftCount = useMemo(() => periods.filter((period) => period.status === "DRAFT").length, [periods]);
+  const lockedCount = useMemo(() => periods.filter((period) => period.status === "LOCKED").length, [periods]);
+  const hasActiveFilters = searchTerm || statusFilter !== "ALL" || customerFilter !== "ALL";
+
+  const filteredPeriods = useMemo(() => periods.filter((period) => {
+    if (statusFilter !== "ALL" && period.status !== statusFilter) return false;
+    if (customerFilter !== "ALL" && period.customer_id !== customerFilter) return false;
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return true;
+    return [period.id, period.customer_name, period.customer_id, period.contract_id, period.period_name]
+      .some((value) => String(value || "").toLowerCase().includes(term));
+  }), [customerFilter, periods, searchTerm, statusFilter]);
+
+  function clearFilters() {
+    setSearchTerm("");
+    setStatusFilter("ALL");
+    setCustomerFilter("ALL");
+  }
 
   return (
     <div className="prod-container">
-      {/* Header */}
       <PageHeader
-        eyebrow="Production Service (Dịch vụ Quản lý Sản lượng)"
-        title="Quản lý Sản lượng Dịch vụ"
-        description="Tiếp nhận, ghi nhận và quản lý nhật ký sản lượng dịch vụ thực tế phát sinh theo ngày/kỳ của từng khách hàng."
-        actions={
-          <button className="button" type="button" onClick={() => navigate("/production/new")}>
-            <Plus size={16} />
-            Khai báo sản lượng kỳ mới
-          </button>
-        }
+        eyebrow="Production Service"
+        title="Quản lý sản lượng"
+        description="Theo dõi, đối soát và khóa số liệu sản lượng theo từng kỳ hợp đồng."
+        actions={<button className="button navy" type="button" onClick={() => navigate("/production/new")}><Plus size={17} /> Khai báo kỳ mới</button>}
       />
 
-      {/* KPI Counters */}
-      <div className="prod-stats-grid">
-        <div className="prod-stat-card">
-          <div className="prod-stat-icon draft">
-            <FileText size={24} />
-          </div>
-          <div className="prod-stat-info">
-            <span>Đang soạn thảo (Draft)</span>
-            <strong>{draftCount} kỳ</strong>
-          </div>
-        </div>
+      <section className="prod-stats-grid" aria-label="Tổng quan kỳ sản lượng">
+        <SummaryCard icon={<ClipboardList size={22} />} tone="total" label="Tổng kỳ sản lượng" value={`${periods.length} kỳ`} />
+        <SummaryCard icon={<FileText size={22} />} tone="draft" label="Đang soạn thảo" value={`${draftCount} kỳ`} />
+        <SummaryCard icon={<Lock size={22} />} tone="locked" label="Đã khóa" value={`${lockedCount} kỳ`} />
+      </section>
 
-        <div className="prod-stat-card">
-          <div className="prod-stat-icon locked">
-            <Lock size={24} />
-          </div>
-          <div className="prod-stat-info">
-            <span>Đã khóa (Locked)</span>
-            <strong>{lockedCount} kỳ</strong>
-          </div>
-        </div>
-      </div>
-
-      {/* Filter Bar */}
-      <div className="prod-filter-bar">
-        <div className="search-box" style={{ width: "320px" }}>
-          <Search size={16} color="#64748b" />
-          <input
-            type="text"
-            placeholder="Tìm kiếm mã kỳ, hợp đồng, khách hàng..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-
+      <section className="prod-filter-bar" aria-label="Lọc kỳ sản lượng">
+        <label className="prod-search-field">
+          <Search size={18} aria-hidden="true" />
+          <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Tìm mã kỳ, hợp đồng hoặc khách hàng" />
+        </label>
         <div className="prod-filter-group">
-          {/* Status Tabs */}
-          <div className="prod-tabs">
-            <button
-              className={`prod-tab ${statusFilter === "ALL" ? "active" : ""}`}
-              type="button"
-              onClick={() => setStatusFilter("ALL")}
-            >
-              Tất cả ({periods.length})
-            </button>
-            <button
-              className={`prod-tab ${statusFilter === "DRAFT" ? "active" : ""}`}
-              type="button"
-              onClick={() => setStatusFilter("DRAFT")}
-            >
-              Đang soạn thảo ({draftCount})
-            </button>
-            <button
-              className={`prod-tab ${statusFilter === "LOCKED" ? "active" : ""}`}
-              type="button"
-              onClick={() => setStatusFilter("LOCKED")}
-            >
-              Đã khóa ({lockedCount})
-            </button>
-          </div>
-
-          {/* Customer Dropdown Filter */}
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <Filter size={14} color="#64748b" />
-            <select
-              className="prod-select"
-              value={customerFilter}
-              onChange={(e) => setCustomerFilter(e.target.value)}
-            >
+          <label className="prod-customer-filter">
+            <SlidersHorizontal size={16} aria-hidden="true" />
+            <select className="prod-select" value={customerFilter} onChange={(event) => setCustomerFilter(event.target.value)} aria-label="Lọc theo khách hàng">
               <option value="ALL">Tất cả khách hàng</option>
-              {SAMPLE_CUSTOMERS.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
+              {SAMPLE_CUSTOMERS.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
             </select>
+          </label>
+          {hasActiveFilters && <button className="prod-reset-filter" type="button" onClick={clearFilters}>Xóa bộ lọc</button>}
+        </div>
+      </section>
+
+      <section className="table-panel prod-list-panel">
+        <div className="prod-list-heading">
+          <div>
+            <h2>Danh sách kỳ sản lượng</h2>
+            <p>{isLoading ? "Đang cập nhật dữ liệu" : `${filteredPeriods.length} trên ${periods.length} kỳ sản lượng`}</p>
+          </div>
+          <div className="prod-tabs" role="group" aria-label="Lọc theo trạng thái">
+            <FilterTab active={statusFilter === "ALL"} label="Tất cả" count={periods.length} onClick={() => setStatusFilter("ALL")} />
+            <FilterTab active={statusFilter === "DRAFT"} label="Soạn thảo" count={draftCount} onClick={() => setStatusFilter("DRAFT")} />
+            <FilterTab active={statusFilter === "LOCKED"} label="Đã khóa" count={lockedCount} onClick={() => setStatusFilter("LOCKED")} />
           </div>
         </div>
-      </div>
 
-      {/* Data Table */}
-      <div className="table-panel">
-        {isLoading ? (
-          <div style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>Đang tải danh sách kỳ sản lượng...</div>
-        ) : filteredPeriods.length === 0 ? (
-          <div className="data-state">
-            <AlertCircle size={36} color="#94a3b8" style={{ margin: "0 auto 12px" }} />
-            <h3 style={{ fontSize: "16px", color: "#334155" }}>Không tìm thấy kỳ sản lượng nào</h3>
-            <p>Thử điều chỉnh từ khóa tìm kiếm hoặc tạo kỳ sản lượng mới.</p>
-          </div>
-        ) : (
-          <table className="record-table">
-            <thead>
-              <tr>
-                <th style={{ width: "16%" }}>MÃ KỲ SẢN LƯỢNG</th>
-                <th style={{ width: "26%" }}>TÊN KHÁCH HÀNG</th>
-                <th style={{ width: "18%" }}>SỐ HỢP ĐỒNG</th>
-                <th style={{ width: "18%" }}>KHOẢNG THỜI GIAN</th>
-                <th style={{ width: "12%" }}>TRẠNG THÁI</th>
-                <th style={{ width: "10%", textAlign: "center" }}>THAO TÁC</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredPeriods.map((period) => {
-                const isLocked = period.status === "LOCKED";
-                return (
-                  <tr key={period.id}>
-                    <td>
-                      <strong style={{ color: "#0f766e", fontSize: "13.5px" }}>{period.period_name || `SL-${period.id}`}</strong>
-                      {period.period_name && !period.period_name.startsWith("SL-") && (
-                        <span style={{ display: "block", fontSize: "11px", color: "#64748b" }}>
-                          {period.period_name}
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <span style={{ fontWeight: "600", color: "#0f172a" }}>
-                        {period.customer_name || period.customer_id}
-                      </span>
-                    </td>
-                    <td>
-                      <span style={{ fontSize: "13px", color: "#475569" }}>{period.contract_id}</span>
-                    </td>
-                    <td>
-                      <span style={{ fontSize: "12.5px", color: "#334155" }}>
-                        {period.from_date} &rarr; {period.to_date}
-                      </span>
-                    </td>
-                    <td>
-                      {isLocked ? (
-                        <span className="badge-status locked">
-                          <CheckCircle2 size={12} /> Đã khóa
-                        </span>
-                      ) : (
-                        <span className="badge-status draft">Draft</span>
-                      )}
-                    </td>
-                    <td style={{ textAlign: "center" }}>
-                      <div style={{ display: "inline-flex", gap: "6px" }}>
-                        <button
-                          type="button"
-                          className="btn-action secondary"
-                          title="Xem chi tiết / Đối soát"
-                          onClick={() => setSelectedDetailPeriodId(period.id)}
-                        >
-                          <Eye size={14} />
-                          Chi tiết
-                        </button>
-
-                        {!isLocked && (
-                          <button
-                            type="button"
-                            className="btn-action lock"
-                            title="Khóa kỳ sản lượng"
-                            onClick={() => setPeriodToLock(period)}
-                          >
-                            <Lock size={13} />
-                            Khóa kỳ
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        {isLoading ? <div className="prod-table-state">Đang tải danh sách kỳ sản lượng...</div> : (
+          filteredPeriods.length === 0 ? <div className="data-state prod-empty-state"><AlertCircle size={34} aria-hidden="true" /><h3>Không tìm thấy kỳ sản lượng nào</h3><p>Thử điều chỉnh từ khóa tìm kiếm hoặc tạo kỳ sản lượng mới.</p></div> : (
+            <div className="prod-table-scroll">
+              <table className="record-table prod-record-table">
+                <thead><tr><th>Mã kỳ sản lượng</th><th>Khách hàng</th><th>Hợp đồng</th><th>Thời gian áp dụng</th><th>Trạng thái</th><th className="prod-actions-column">Thao tác</th></tr></thead>
+                <tbody>{filteredPeriods.map((period) => <ProductionRow key={period.id} period={period} onDetail={setSelectedDetailPeriodId} onLock={setPeriodToLock} />)}</tbody>
+              </table>
+            </div>
+          )
         )}
-      </div>
+      </section>
 
-      <ProductionPeriodDetailModal
-        isOpen={!!selectedDetailPeriodId}
-        periodId={selectedDetailPeriodId}
-        onClose={() => setSelectedDetailPeriodId(null)}
-        onRefreshList={fetchPeriods}
-        onOpenLockModal={(period) => setPeriodToLock(period)}
-      />
-
-      <LockConfirmationModal
-        isOpen={!!periodToLock}
-        period={periodToLock}
-        onClose={() => setPeriodToLock(null)}
-        onSuccess={() => {
-          fetchPeriods();
-          if (selectedDetailPeriodId === periodToLock?.id) {
-            setSelectedDetailPeriodId(null);
-          }
-        }}
-      />
+      <ProductionPeriodDetailModal isOpen={Boolean(selectedDetailPeriodId)} periodId={selectedDetailPeriodId} onClose={() => setSelectedDetailPeriodId(null)} onRefreshList={fetchPeriods} onOpenLockModal={setPeriodToLock} />
+      <LockConfirmationModal isOpen={Boolean(periodToLock)} period={periodToLock} onClose={() => setPeriodToLock(null)} onSuccess={() => { fetchPeriods(); if (selectedDetailPeriodId === periodToLock?.id) setSelectedDetailPeriodId(null); }} />
     </div>
   );
+}
+
+function SummaryCard({ icon, tone, label, value }) {
+  return <div className={`prod-stat-card ${tone}`}><div className={`prod-stat-icon ${tone}`}>{icon}</div><div className="prod-stat-info"><span>{label}</span><strong>{value}</strong></div></div>;
+}
+
+function FilterTab({ active, label, count, onClick }) {
+  return <button className={`prod-tab${active ? " active" : ""}`} type="button" onClick={onClick}>{label} <span>{count}</span></button>;
+}
+
+function ProductionRow({ period, onDetail, onLock }) {
+  const isLocked = period.status === "LOCKED";
+  return <tr>
+    <td><strong className="prod-period-code">{period.period_name || `SL-${period.id}`}</strong>{period.period_name && !period.period_name.startsWith("SL-") && <span className="prod-period-note">{period.period_name}</span>}</td>
+    <td><span className="prod-customer-name">{period.customer_name || period.customer_id}</span></td>
+    <td><span className="prod-contract-code">{period.contract_id}</span></td>
+    <td><span className="prod-date-range"><time>{period.from_date}</time><span aria-hidden="true">→</span><time>{period.to_date}</time></span></td>
+    <td>{isLocked ? <span className="badge-status locked"><CheckCircle2 size={12} /> Đã khóa</span> : <span className="badge-status draft">Soạn thảo</span>}</td>
+    <td className="prod-row-actions"><div><button type="button" className="btn-action secondary" onClick={() => onDetail(period.id)}><Eye size={14} /> Chi tiết</button>{!isLocked && <button type="button" className="btn-action lock" onClick={() => onLock(period)}><Lock size={13} /> Khóa kỳ</button>}</div></td>
+  </tr>;
 }

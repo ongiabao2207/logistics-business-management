@@ -527,6 +527,215 @@
   line-height: 1.4;
 }
 
+/* Production period list: structured hierarchy, consistent spacing and responsive table. */
+.prod-container {
+  gap: 22px;
+  padding: 30px 34px 42px;
+}
+
+.prod-container .page-header {
+  margin: 0;
+}
+
+.prod-container .page-header h1 {
+  color: #06143c;
+}
+
+.prod-container .page-header p {
+  max-width: 620px;
+}
+
+.prod-stats-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.prod-stat-card {
+  min-height: 104px;
+  gap: 14px;
+  border-color: #dfe3ec;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgb(20 29 55 / 4%);
+  padding: 17px;
+}
+
+.prod-stat-card:hover {
+  transform: none;
+  box-shadow: 0 5px 14px rgb(20 29 55 / 8%);
+}
+
+.prod-stat-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+}
+
+.prod-stat-icon.total { background: #e3ebfb; color: #3159a2; }
+.prod-stat-icon.draft { background: #fff0cc; color: #a06718; }
+.prod-stat-icon.locked { background: #ddf6e9; color: #167154; }
+
+.prod-stat-info span {
+  color: #747a88;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+.prod-stat-info strong {
+  margin-top: 4px;
+  color: #0b173c;
+  font-size: 22px;
+}
+
+.prod-filter-bar {
+  justify-content: space-between;
+  min-height: 74px;
+  border-color: #d8dbe5;
+  border-radius: 5px;
+  box-shadow: 0 1px 2px rgb(20 29 55 / 4%);
+  padding: 14px 18px;
+}
+
+.prod-search-field,
+.prod-customer-filter {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #737b8a;
+}
+
+.prod-search-field {
+  width: min(430px, 100%);
+  min-height: 42px;
+  border: 1px solid #cbd0dc;
+  border-radius: 4px;
+  background: #fff;
+  padding: 0 12px;
+}
+
+.prod-search-field:focus-within {
+  border-color: #4964ab;
+  box-shadow: 0 0 0 3px rgb(73 100 171 / 10%);
+}
+
+.prod-search-field input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: #202a40;
+}
+
+.prod-filter-group { gap: 12px; }
+.prod-customer-filter { border: 1px solid #cbd0dc; border-radius: 4px; padding: 0 10px; }
+.prod-select { height: 40px; min-width: 184px; border: 0; border-radius: 0; padding: 0 4px; }
+.prod-select:focus { box-shadow: none; }
+
+.prod-reset-filter {
+  border: 0;
+  background: transparent;
+  color: #34518f;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 2px;
+}
+
+.prod-reset-filter:hover { color: #0b2a68; text-decoration: underline; }
+
+.prod-list-panel { overflow: hidden; }
+
+.prod-list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 74px;
+  border-bottom: 1px solid #d8dbe5;
+  padding: 14px 20px;
+}
+
+.prod-list-heading h2,
+.prod-list-heading p { margin: 0; }
+.prod-list-heading h2 { color: #101c43; font-size: 17px; }
+.prod-list-heading p { margin-top: 5px; color: #838793; font-size: 12px; }
+
+.prod-tabs {
+  border: 1px solid #d9dce5;
+  border-radius: 5px;
+  background: #f5f6fa;
+  padding: 3px;
+}
+
+.prod-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 31px;
+  border-radius: 3px;
+  color: #686e7c;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0 10px;
+}
+
+.prod-tab span {
+  min-width: 17px;
+  border-radius: 999px;
+  background: #e6e8ee;
+  color: #5c6372;
+  font-size: 10px;
+  line-height: 17px;
+  text-align: center;
+}
+
+.prod-tab.active { color: #173979; box-shadow: 0 1px 2px rgb(14 27 61 / 11%); }
+.prod-tab.active span { background: #dce7fb; color: #244b91; }
+
+.prod-table-scroll { overflow-x: auto; }
+.prod-record-table { min-width: 930px; }
+.prod-record-table th { background: #f2f1f7; }
+.prod-record-table th:nth-child(1) { width: 16%; }
+.prod-record-table th:nth-child(2) { width: 25%; }
+.prod-record-table th:nth-child(3) { width: 18%; }
+.prod-record-table th:nth-child(4) { width: 18%; }
+.prod-record-table th:nth-child(5) { width: 12%; }
+.prod-actions-column { width: 160px; text-align: right !important; }
+.prod-record-table td { padding-top: 16px; padding-bottom: 16px; }
+
+.prod-period-code { color: #163b7d; font-size: 13px; }
+.prod-period-note { display: block; margin-top: 4px; color: #7b8190; font-size: 11px; }
+.prod-customer-name { color: #1b2744; font-size: 13px; font-weight: 700; }
+.prod-contract-code { color: #4e5870; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.prod-date-range { display: inline-flex; align-items: center; gap: 7px; color: #4f596e; font-size: 12px; white-space: nowrap; }
+.prod-date-range > span { color: #939aa8; }
+
+.badge-status { min-height: 26px; padding: 0 9px; border-radius: 999px; font-size: 10px; letter-spacing: .04em; }
+.prod-row-actions { text-align: right; }
+.prod-row-actions > div { display: inline-flex; gap: 6px; }
+.prod-row-actions .btn-action { min-height: 31px; padding: 0 9px; font-size: 11px; }
+.prod-row-actions .btn-action.lock { background: #102958; border-color: #102958; }
+.prod-table-state { color: #747b89; padding: 48px 20px; text-align: center; }
+.prod-empty-state { min-height: 245px; display: flex; flex-direction: column; align-items: center; justify-content: center; }.prod-empty-state svg { color: #8c96a8; }.prod-empty-state h3 { margin: 13px 0 0; color: #293754; font-size: 16px; }.prod-empty-state p { margin: 5px 0 0; color: #7b8190; }
+
+@media (max-width: 920px) {
+  .prod-container { padding: 24px 22px 34px; }
+  .prod-stats-grid { grid-template-columns: 1fr; }
+  .prod-filter-bar, .prod-list-heading { align-items: stretch; flex-direction: column; }
+  .prod-search-field { width: 100%; }
+  .prod-list-heading { gap: 12px; }
+  .prod-tabs { width: max-content; max-width: 100%; overflow-x: auto; }
+}
+
+@media (max-width: 640px) {
+  .prod-container { gap: 16px; padding: 20px 16px 30px; }
+  .prod-filter-group { align-items: stretch; flex-direction: column; }
+  .prod-customer-filter { justify-content: space-between; }.prod-select { width: 100%; }
+  .prod-reset-filter { align-self: flex-start; }
+  .prod-list-heading, .prod-filter-bar { padding: 14px; }
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
