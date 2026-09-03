@@ -2,6 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
+from app.messaging import consumer
 from app.services.notification_service import NotificationService
 
 
@@ -59,3 +60,41 @@ def test_creates_notifications_for_multiple_roles() -> None:
     assert len(director_items) == 1
     assert director_items[0].reference_id == "HD-001"
 
+
+def test_consumer_deserializes_event_before_creating_notification(monkeypatch) -> None:
+    received_events: list[dict] = []
+    acknowledgements: list[int] = []
+
+    class FakeSession:
+        def __enter__(self):
+            return object()
+
+        def __exit__(self, *_args):
+            return False
+
+    class FakeNotificationService:
+        def __init__(self, _db) -> None:
+            pass
+
+        def create_from_event(self, event: dict) -> None:
+            received_events.append(event)
+
+    class FakeChannel:
+        def basic_ack(self, delivery_tag: int) -> None:
+            acknowledgements.append(delivery_tag)
+
+    class FakeMethod:
+        delivery_tag = 12
+
+    monkeypatch.setattr(consumer, "SessionLocal", FakeSession)
+    monkeypatch.setattr(consumer, "NotificationService", FakeNotificationService)
+
+    consumer.NotificationConsumer._handle_message(
+        FakeChannel(),
+        FakeMethod(),
+        None,
+        b'{"event_id":"evt-1","payload":{"recipient_role":"ROLE_ACCOUNTANT"}}',
+    )
+
+    assert received_events == [{"event_id": "evt-1", "payload": {"recipient_role": "ROLE_ACCOUNTANT"}}]
+    assert acknowledgements == [12]

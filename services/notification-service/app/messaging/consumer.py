@@ -49,6 +49,7 @@ class NotificationConsumer:
     @staticmethod
     def _handle_message(channel, method, _properties, body: bytes) -> None:
         try:
+            event = json.loads(body)
             payload = event.get("payload", {})
             if not payload.get("recipient_role") and not payload.get("recipient_roles"):
                 channel.basic_ack(delivery_tag=method.delivery_tag)
