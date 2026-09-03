@@ -1,5 +1,6 @@
 import { Navigate, createBrowserRouter } from "react-router-dom";
 
+import { ApprovalTasksPage } from "../features/approvals/pages/ApprovalTasksPage.jsx";
 import { ContractCreatePage } from "../features/contracts/pages/ContractCreatePage.jsx";
 import { ContractEditPage } from "../features/contracts/pages/ContractEditPage.jsx";
 import { ContractListPage } from "../features/contracts/pages/ContractListPage.jsx";
@@ -22,7 +23,7 @@ import { ProductionPeriodListPage } from "../features/production/pages/Productio
 import { ProtectedRoute } from "../shared/components/ProtectedRoute.jsx";
 import { AppLayout } from "../shared/layouts/AppLayout.jsx";
 
-function protect(element, allowedRoles) {
+function protectedElement(element, allowedRoles) {
   return <ProtectedRoute allowedRoles={allowedRoles}>{element}</ProtectedRoute>;
 }
 
@@ -30,31 +31,36 @@ export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   {
     path: "/",
-    element: protect(<AppLayout />),
+    element: (
+      <ProtectedRoute>
+        <AppLayout />
+      </ProtectedRoute>
+    ),
     children: [
       { index: true, element: <DashboardPage /> },
-      { path: "identity", element: protect(<IdentityLoginPage />, MODULE_ROLES.identity) },
-      { path: "customers", element: protect(<CustomerListPage />, MODULE_ROLES.customers) },
-      { path: "contracts", element: protect(<ContractListPage />, MODULE_ROLES.contracts) },
-      { path: "contracts/new", element: protect(<ContractCreatePage />, MODULE_ROLES.contracts) },
-      { path: "contracts/:contractId/edit", element: protect(<ContractEditPage />, MODULE_ROLES.contracts) },
-      { path: "prices", element: protect(<PriceListPage />, MODULE_ROLES.prices) },
-      { path: "production", element: protect(<ProductionPeriodListPage />, MODULE_ROLES.production) },
+      { path: "identity", element: protectedElement(<IdentityLoginPage />, MODULE_ROLES.identity) },
+      { path: "customers", element: protectedElement(<CustomerListPage />, MODULE_ROLES.customers) },
+      { path: "contracts", element: protectedElement(<ContractListPage />, MODULE_ROLES.contracts) },
+      { path: "contracts/new", element: protectedElement(<ContractCreatePage />, MODULE_ROLES.contracts) },
+      { path: "contracts/:contractId/edit", element: protectedElement(<ContractEditPage />, MODULE_ROLES.contracts) },
+      { path: "prices", element: protectedElement(<PriceListPage />, MODULE_ROLES.prices) },
+      { path: "production", element: protectedElement(<ProductionPeriodListPage />, MODULE_ROLES.production) },
+      { path: "approvals", element: protectedElement(<ApprovalTasksPage />, MODULE_ROLES.approvals) },
       { path: "notifications", element: <NotificationListPage /> },
     ],
   },
   {
     path: "/payments",
-    element: protect(<PaymentShell />, MODULE_ROLES.payments),
+    element: protectedElement(<PaymentShell />, MODULE_ROLES.payments),
     children: [
       { index: true, element: <PaymentListPage /> },
-      { path: "create", element: protect(<PaymentSearchPage />, [ROLES.ACCOUNTANT]) },
-      { path: "periods", element: protect(<Navigate to="/payments/create" replace />, [ROLES.ACCOUNTANT]) },
-      { path: "periods/:periodKey/customers", element: protect(<PaymentCustomersPage />, [ROLES.ACCOUNTANT]) },
-      { path: "new", element: protect(<PaymentCreatePage />, [ROLES.ACCOUNTANT]) },
+      { path: "create", element: protectedElement(<PaymentSearchPage />, [ROLES.ACCOUNTANT]) },
+      { path: "periods", element: protectedElement(<Navigate to="/payments/create" replace />, [ROLES.ACCOUNTANT]) },
+      { path: "periods/:periodKey/customers", element: protectedElement(<PaymentCustomersPage />, [ROLES.ACCOUNTANT]) },
+      { path: "new", element: protectedElement(<PaymentCreatePage />, [ROLES.ACCOUNTANT]) },
       { path: ":paymentId", element: <PaymentDetailPage /> },
-      { path: ":paymentId/edit", element: protect(<PaymentEditPage />, [ROLES.ACCOUNTANT]) },
-      { path: ":paymentId/adjust", element: protect(<PaymentEditPage adjustment />, [ROLES.ACCOUNTANT]) },
+      { path: ":paymentId/edit", element: protectedElement(<PaymentEditPage />, [ROLES.ACCOUNTANT]) },
+      { path: ":paymentId/adjust", element: protectedElement(<PaymentEditPage adjustment />, [ROLES.ACCOUNTANT]) },
       { path: ":paymentId/approval", element: <PaymentApprovalPage /> },
     ],
   },

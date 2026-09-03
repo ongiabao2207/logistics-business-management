@@ -23,9 +23,13 @@ export const identityApi = {
     return httpClient.patch(`/api/v1/accounts/${accountId}`, payload);
   },
   updateAccountStatus(accountId, isActive) {
-    return httpClient.patch(`/api/v1/accounts/${accountId}/status`, { is_active: isActive });
+    return httpClient.patch(`/api/v1/accounts/${accountId}/status`, {
+      is_active: isActive,
+    });
   },
   updateAccountRole(accountId, roleId) {
-    return httpClient.put(`/api/v1/accounts/${accountId}/role`, { role_id: roleId });
+    return httpClient.put(`/api/v1/accounts/${accountId}/role`, {
+      role_id: roleId,
+    });
   },
 };

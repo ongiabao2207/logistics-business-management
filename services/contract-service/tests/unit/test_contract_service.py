@@ -86,8 +86,8 @@ def db_session():
 def make_contract_create(**overrides):
     data = {
         "customer_id": "KH0001",
-        "valid_from": date(2026, 1, 1),
-        "valid_to": date(2026, 12, 31),
+        "valid_from": date.today() + timedelta(days=30),
+        "valid_to": date.today() + timedelta(days=300),
         "payment_terms": "Monthly payment within 15 days",
         "services": [{"service_id": 1, "quantity": 2}],
     }
@@ -199,18 +199,51 @@ def test_create_contract_rejects_inactive_customer(db_session):
         service.create_contract(db_session, make_contract_create(), "inactive-customer")
 
 
-def test_create_contract_rejects_invalid_effective_period(db_session):
+def test_create_contract_rejects_non_future_valid_from(db_session):
     service = make_service()
 
-    with pytest.raises(ContractValidationError):
+    with pytest.raises(ContractValidationError) as exc:
         service.create_contract(
             db_session,
             make_contract_create(
-                valid_from=date(2026, 12, 31),
-                valid_to=date(2026, 1, 1),
+                valid_from=date.today(),
+                valid_to=date.today() + timedelta(days=30),
+            ),
+            "today-start",
+        )
+
+    assert str(exc.value) == "valid_from must be greater than current date"
+
+
+def test_create_contract_rejects_valid_to_before_valid_from(db_session):
+    service = make_service()
+    valid_from = date.today() + timedelta(days=30)
+
+    with pytest.raises(ContractValidationError) as exc:
+        service.create_contract(
+            db_session,
+            make_contract_create(
+                valid_from=valid_from,
+                valid_to=valid_from - timedelta(days=1),
             ),
             "invalid-period",
         )
+
+    assert str(exc.value) == "valid_to must be on or after valid_from"
+
+
+def test_create_contract_allows_same_valid_from_and_valid_to(db_session):
+    service = make_service()
+    valid_from = date.today() + timedelta(days=30)
+
+    contract = service.create_contract(
+        db_session,
+        make_contract_create(valid_from=valid_from, valid_to=valid_from),
+        "single-day-contract",
+    )
+
+    assert contract.valid_from == valid_from
+    assert contract.valid_to == valid_from
 
 
 def test_create_contract_rejects_duplicate_service_ids(db_session):
@@ -466,7 +499,7 @@ def test_update_contract_rejects_non_future_valid_from(db_session):
     assert str(exc.value) == "valid_from must be greater than current date"
 
 
-def test_update_contract_rejects_valid_to_not_after_valid_from(db_session):
+def test_update_contract_rejects_valid_to_before_valid_from(db_session):
     service = make_service()
     contract = service.create_contract(db_session, make_contract_create(), "bad-to")
     new_valid_from = date.today() + timedelta(days=30)
@@ -475,10 +508,28 @@ def test_update_contract_rejects_valid_to_not_after_valid_from(db_session):
         service.update_contract(
             db_session,
             contract.id,
-            ContractUpdate(valid_from=new_valid_from, valid_to=new_valid_from),
+            ContractUpdate(
+                valid_from=new_valid_from,
+                valid_to=new_valid_from - timedelta(days=1),
+            ),
         )
 
-    assert str(exc.value) == "valid_to must be greater than valid_from"
+    assert str(exc.value) == "valid_to must be on or after valid_from"
+
+
+def test_update_contract_allows_same_valid_from_and_valid_to(db_session):
+    service = make_service()
+    contract = service.create_contract(db_session, make_contract_create(), "same-day")
+    new_valid_from = date.today() + timedelta(days=30)
+
+    updated = service.update_contract(
+        db_session,
+        contract.id,
+        ContractUpdate(valid_from=new_valid_from, valid_to=new_valid_from),
+    )
+
+    assert updated.valid_from == new_valid_from
+    assert updated.valid_to == new_valid_from
 
 
 def test_update_contract_updates_parent_timestamp_for_service_only_change(db_session):
