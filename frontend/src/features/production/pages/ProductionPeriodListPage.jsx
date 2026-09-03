@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Plus, Search, Filter, Lock, FileText, Eye, CheckCircle2, AlertCircle } from "lucide-react";
 
 import { PageHeader } from "../../../shared/components/PageHeader.jsx";
 import { usePageTitle } from "../../../shared/hooks/usePageTitle";
 import { productionApi } from "../api/productionApi";
 import { SAMPLE_CUSTOMERS } from "../constants/productionConstants";
-import { CreateProductionPeriodModal } from "../components/CreateProductionPeriodModal.jsx";
 import { ProductionPeriodDetailModal } from "../components/ProductionPeriodDetailModal.jsx";
 import { LockConfirmationModal } from "../components/LockConfirmationModal.jsx";
 
@@ -13,6 +13,7 @@ import "../styles/production.css";
 
 export function ProductionPeriodListPage() {
   usePageTitle("Production Periods");
+  const navigate = useNavigate();
 
   const [periods, setPeriods] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -23,7 +24,6 @@ export function ProductionPeriodListPage() {
   const [customerFilter, setCustomerFilter] = useState("ALL");
 
   // Modal states
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedDetailPeriodId, setSelectedDetailPeriodId] = useState(null);
   const [periodToLock, setPeriodToLock] = useState(null);
 
@@ -79,7 +79,7 @@ export function ProductionPeriodListPage() {
         title="Quản lý Sản lượng Dịch vụ"
         description="Tiếp nhận, ghi nhận và quản lý nhật ký sản lượng dịch vụ thực tế phát sinh theo ngày/kỳ của từng khách hàng."
         actions={
-          <button className="button" type="button" onClick={() => setIsCreateModalOpen(true)}>
+          <button className="button" type="button" onClick={() => navigate("/production/new")}>
             <Plus size={16} />
             Khai báo sản lượng kỳ mới
           </button>
@@ -255,13 +255,6 @@ export function ProductionPeriodListPage() {
           </table>
         )}
       </div>
-
-      {/* Modals */}
-      <CreateProductionPeriodModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSuccess={fetchPeriods}
-      />
 
       <ProductionPeriodDetailModal
         isOpen={!!selectedDetailPeriodId}

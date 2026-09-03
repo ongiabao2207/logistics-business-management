@@ -3,7 +3,7 @@ import { X, Plus, Trash2, AlertTriangle, CheckCircle, Calendar, Building, FileTe
 import { SEED_CONTRACTS, SERVICE_CATALOG } from "../constants/productionConstants";
 import { productionApi } from "../api/productionApi";
 
-export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess }) {
+export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess, pageMode = false }) {
   const [selectedContractId, setSelectedContractId] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -19,7 +19,7 @@ export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess }) {
   ]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [alertState, setAlertState] = useState(null); // { type: 'success' | 'invalid_date' | 'overlap', title, message }
+  const [alertState, setAlertState] = useState(null);
 
   const contract = SEED_CONTRACTS.find((item) => item.id === selectedContractId);
 
@@ -66,12 +66,20 @@ export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess }) {
     setAlertState(null);
 
     if (!contract || !fromDate || !toDate) {
-      alert("Vui lòng điền đầy đủ các thông tin bắt buộc.");
+      setAlertState({
+        type: "error",
+        title: "Thiếu thông tin bắt buộc",
+        message: "Vui lòng chọn hợp đồng và nhập đầy đủ khoảng thời gian trước khi lưu.",
+      });
       return;
     }
 
     if (new Date(fromDate) > new Date(toDate)) {
-      alert("Ngày bắt đầu không được lớn hơn ngày kết thúc.");
+      setAlertState({
+        type: "error",
+        title: "Khoảng thời gian không hợp lệ",
+        message: "Ngày bắt đầu không được lớn hơn ngày kết thúc.",
+      });
       return;
     }
 
@@ -136,15 +144,19 @@ export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess }) {
         createdId: created.id,
       });
     } catch (err) {
-      alert(`Đã xảy ra lỗi: ${err.message || "Không thể tạo kỳ sản lượng"}`);
+      setAlertState({
+        type: "error",
+        title: "Không thể tạo kỳ sản lượng",
+        message: err.message || "Vui lòng kiểm tra lại dữ liệu và thử lại.",
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content">
+    <div className={pageMode ? "production-create-page" : "modal-overlay"}>
+      <div className={`modal-content${pageMode ? " production-create-card" : ""}`}>
         <div className="modal-header">
           <div>
             <h2>Khai báo sản lượng kỳ mới</h2>
@@ -192,27 +204,6 @@ export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess }) {
             </div>
           ) : (
             <form id="create-period-form" onSubmit={handleSubmit}>
-              {/* Warning Alert Boxes if any */}
-              {alertState?.type === "invalid_date" && (
-                <div className="alert-box danger">
-                  <AlertTriangle size={24} className="alert-icon" />
-                  <div className="alert-body">
-                    <h4>{alertState.title}</h4>
-                    <p>{alertState.message}</p>
-                  </div>
-                </div>
-              )}
-
-              {alertState?.type === "overlap" && (
-                <div className="alert-box warning">
-                  <AlertTriangle size={24} className="alert-icon" />
-                  <div className="alert-body">
-                    <h4>{alertState.title}</h4>
-                    <p>{alertState.message}</p>
-                  </div>
-                </div>
-              )}
-
               {/* General Info Grid */}
               <div className="form-grid">
                 <div className="form-group">
@@ -377,9 +368,20 @@ export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess }) {
                   </table>
                 </div>
               </div>
+
             </form>
           )}
         </div>
+
+        {alertState && alertState.type !== "success" && (
+          <div className={`alert-box ${alertState.type === "overlap" ? "warning" : "danger"} form-footer-alert`}>
+            <AlertTriangle size={24} className="alert-icon" />
+            <div className="alert-body">
+              <h4>{alertState.title}</h4>
+              <p>{alertState.message}</p>
+            </div>
+          </div>
+        )}
 
         {alertState?.type !== "success" && (
           <div className="modal-footer">

@@ -14,6 +14,7 @@ import { NotificationListPage } from "../features/notifications/pages/Notificati
 import { PaymentListPage } from "../features/payments/pages/PaymentListPage.jsx";
 import { PriceListPage } from "../features/prices/pages/PriceListPage.jsx";
 import { ProductionPeriodListPage } from "../features/production/pages/ProductionPeriodListPage.jsx";
+import { CreateProductionPeriodPage } from "../features/production/pages/CreateProductionPeriodPage.jsx";
 import { ProtectedRoute } from "../shared/components/ProtectedRoute.jsx";
 import { AppLayout } from "../shared/layouts/AppLayout.jsx";
 
@@ -59,6 +60,10 @@ export const router = createBrowserRouter([
       {
         path: "production",
         element: protectedElement(<ProductionPeriodListPage />, MODULE_ROLES.production),
+      },
+      {
+        path: "production/new",
+        element: protectedElement(<CreateProductionPeriodPage />, MODULE_ROLES.production),
       },
       {
         path: "payments",
