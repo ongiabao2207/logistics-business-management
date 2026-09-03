@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 
 import { DataState } from "../../../shared/components/DataState.jsx";
 import { usePageTitle } from "../../../shared/hooks/usePageTitle";
+import { ROLES } from "../../identity/constants/permissions";
+import { useAuth } from "../../identity/hooks/useAuth";
 import { ContractDetailModal } from "../components/ContractDetailModal.jsx";
 import { ContractFilters } from "../components/ContractFilters.jsx";
 import { ContractKpiCards } from "../components/ContractKpiCards.jsx";
@@ -21,30 +23,6 @@ const initialFilters = {
   to: "",
   status: "",
 };
-
-function matchesDateRange(contract, from, to) {
-  const validFrom = new Date(contract.valid_from).getTime();
-  const rangeFrom = from ? parseFilterDate(from) : null;
-  const rangeTo = to ? parseFilterDate(to) : null;
-
-  if (from && rangeFrom === null) {
-    return true;
-  }
-
-  if (to && rangeTo === null) {
-    return true;
-  }
-
-  if (rangeFrom && validFrom < rangeFrom) {
-    return false;
-  }
-
-  if (rangeTo && validFrom > rangeTo) {
-    return false;
-  }
-
-  return true;
-}
 
 function parseFilterDate(value) {
   const trimmedValue = value.trim();
@@ -73,6 +51,30 @@ function parseFilterDate(value) {
   return null;
 }
 
+function matchesDateRange(contract, from, to) {
+  const validFrom = new Date(contract.valid_from).getTime();
+  const rangeFrom = from ? parseFilterDate(from) : null;
+  const rangeTo = to ? parseFilterDate(to) : null;
+
+  if (from && rangeFrom === null) {
+    return true;
+  }
+
+  if (to && rangeTo === null) {
+    return true;
+  }
+
+  if (rangeFrom && validFrom < rangeFrom) {
+    return false;
+  }
+
+  if (rangeTo && validFrom > rangeTo) {
+    return false;
+  }
+
+  return true;
+}
+
 function filterContracts(contracts, filters) {
   const search = filters.search.trim().toLowerCase();
 
@@ -97,12 +99,14 @@ function filterContracts(contracts, filters) {
 export function ContractListPage() {
   usePageTitle("Contracts");
 
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [filters, setFilters] = useState(initialFilters);
   const [page, setPage] = useState(1);
   const [selectedContractId, setSelectedContractId] = useState(null);
   const { data, isLoading, isError, error } = useContracts();
   const contracts = useMemo(() => (Array.isArray(data) ? data : []), [data]);
+  const canCreateContract = user?.role === ROLES.SALE;
 
   const customerOptions = useMemo(
     () =>
@@ -141,14 +145,16 @@ export function ContractListPage() {
           <p>BizManage / Quản lý hợp đồng</p>
           <h1>Quản lý hợp đồng</h1>
         </div>
-        <button
-          className="button contract-create-button"
-          type="button"
-          onClick={() => navigate("/contracts/new")}
-        >
-          <Plus size={18} />
-          Lập hợp đồng mới
-        </button>
+        {canCreateContract ? (
+          <button
+            className="button contract-create-button"
+            type="button"
+            onClick={() => navigate("/contracts/new")}
+          >
+            <Plus size={18} />
+            Lập hợp đồng mới
+          </button>
+        ) : null}
       </div>
 
       <ContractFilters

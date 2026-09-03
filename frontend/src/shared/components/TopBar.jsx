@@ -1,15 +1,13 @@
-import { Search } from "lucide-react";
+import { useAuth } from "../../features/identity/hooks/useAuth";
 
 export function TopBar() {
+  const { user } = useAuth();
+  const initials = user?.username?.slice(0, 2).toUpperCase() ?? "--";
+
   return (
     <header className="topbar">
-      <label className="search-box">
-        <Search size={16} />
-        <input type="search" placeholder="Search business records" />
-      </label>
-      <div className="user-chip">
-        <span className="avatar">AD</span>
-        <span>Admin User</span>
+      <div className="topbar-actions">
+        <div className="user-chip"><div><strong>{user?.username}</strong><small>{user?.roleLabel}</small></div><span className="avatar">{initials}</span></div>
       </div>
     </header>
   );

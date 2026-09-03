@@ -3,9 +3,12 @@ import { Calculator, Plus } from "lucide-react";
 import { DataState } from "../../../shared/components/DataState.jsx";
 import { PageHeader } from "../../../shared/components/PageHeader.jsx";
 import { usePageTitle } from "../../../shared/hooks/usePageTitle";
+import { ROLES } from "../../identity/constants/permissions";
+import { useAuth } from "../../identity/hooks/useAuth";
 
 export function PaymentListPage() {
   usePageTitle("Payments");
+  const { user } = useAuth();
 
   return (
     <>
@@ -13,7 +16,7 @@ export function PaymentListPage() {
         eyebrow="Payment Service"
         title="Payments"
         description="Preview statements, create payment records, submit approvals, and track adjustments."
-        actions={
+        actions={user.role === ROLES.ACCOUNTANT ? (
           <>
             <button className="button secondary" type="button">
               <Calculator size={16} />
@@ -24,7 +27,7 @@ export function PaymentListPage() {
               Payment
             </button>
           </>
-        }
+        ) : null}
       />
       <DataState
         title="Payment workspace ready"
