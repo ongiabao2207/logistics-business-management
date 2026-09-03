@@ -4,11 +4,9 @@ from decimal import Decimal
 import pytest
 
 from app.api.dependencies import build_payment_service
-from app.clients.production import ProductionRecord
 from app.models.payment_model import PaymentNumberSequence, PaymentStatus
 from app.schemas.payment_schema import (
     PaymentCreate,
-    PaymentLineUpdate,
     PaymentPeriodRequest,
     PaymentUpdate,
 )
@@ -251,7 +249,7 @@ def test_approved_payment_cannot_be_recalculated(
     assert error.value.status_code == 409
 
 
-def test_update_draft_recalculates_lines_and_tax(
+def test_update_draft_changes_tax_without_changing_confirmed_quantity(
     db_session,
 ):
     service = build_payment_service()
@@ -264,27 +262,23 @@ def test_update_draft_recalculates_lines_and_tax(
         db=db_session,
         payment_id=payment.id,
         request=PaymentUpdate(
-            reason="Exclude two unbillable containers",
+            reason="Correct tax rate",
             tax_rate=Decimal("0.08"),
-            lines=[
-                PaymentLineUpdate(
-                    service_id="CONTAINER_20",
-                    billing_quantity=Decimal("10"),
-                )
-            ],
         ),
     )
 
     assert updated.status == PaymentStatus.DRAFT
     assert updated.lines[0].confirmed_quantity == Decimal("12.0000")
-    assert updated.lines[0].billing_quantity == Decimal("10.0000")
+    assert updated.lines[0].billing_quantity == Decimal("12.0000")
     assert updated.lines[0].unit_price_snapshot == Decimal("120000.00")
-    assert updated.subtotal == Decimal("1200000.00")
-    assert updated.tax_amount == Decimal("96000.00")
-    assert updated.total_amount == Decimal("1296000.00")
+    assert updated.subtotal == Decimal("1440000.00")
+    assert updated.tax_amount == Decimal("115200.00")
+    assert updated.total_amount == Decimal("1555200.00")
     assert len(updated.adjustments) == 1
     assert updated.adjustments[0].previous_billing_quantity == Decimal("12.0000")
-    assert updated.adjustments[0].new_billing_quantity == Decimal("10.0000")
+    assert updated.adjustments[0].new_billing_quantity == Decimal("12.0000")
+    assert updated.adjustments[0].previous_tax_rate == Decimal("0.1000")
+    assert updated.adjustments[0].new_tax_rate == Decimal("0.0800")
 
 
 def test_submitted_payment_cannot_be_updated(
@@ -311,68 +305,6 @@ def test_submitted_payment_cannot_be_updated(
         )
 
     assert error.value.status_code == 409
-
-
-def test_draft_update_can_add_and_remove_confirmed_service_lines(
-    db_session,
-):
-    service = build_payment_service()
-    payment = service.create(
-        db_session,
-        PaymentCreate(**request().model_dump()),
-    )
-
-    original_get_records = service.production.get_eligible_records
-    service.production.get_eligible_records = lambda **_: [
-        ProductionRecord(
-            service_id="STORAGE_DAY",
-            description="Container storage",
-            quantity=Decimal("3"),
-            period_start=payment.period_start,
-            period_end=payment.period_end,
-            status="CONFIRMED",
-        )
-    ]
-    service.prices.prices["STORAGE_DAY"] = Decimal("50000")
-
-    try:
-        added = service.update_draft(
-            db=db_session,
-            payment_id=payment.id,
-            request=PaymentUpdate(
-                reason="Add confirmed storage charge",
-                lines=[
-                    PaymentLineUpdate(
-                        service_id="STORAGE_DAY",
-                        billing_quantity=Decimal("2"),
-                    )
-                ],
-            ),
-        )
-        assert {line.service_id for line in added.lines} == {
-            "CONTAINER_20",
-            "STORAGE_DAY",
-        }
-        assert any(item.action == "ADD" for item in added.adjustments)
-
-        removed = service.update_draft(
-            db=db_session,
-            payment_id=payment.id,
-            request=PaymentUpdate(
-                reason="Remove container handling line",
-                lines=[
-                    PaymentLineUpdate(
-                        service_id="CONTAINER_20",
-                        remove=True,
-                    )
-                ],
-            ),
-        )
-        assert [line.service_id for line in removed.lines] == ["STORAGE_DAY"]
-        assert any(item.action == "REMOVE" for item in removed.adjustments)
-    finally:
-        service.production.get_eligible_records = original_get_records
-        service.prices.prices.pop("STORAGE_DAY", None)
 
 
 def test_revision_requested_payment_requires_adjustment_api(

@@ -231,78 +231,7 @@ class PaymentService:
                 409,
             )
 
-        preview = self.preview(
-            PaymentPeriodRequest(**request.model_dump(exclude={"lines"}))
-        )
-
-        if request.lines is not None:
-            requested_quantities = {
-                line.service_id: line.billing_quantity
-                for line in request.lines
-            }
-            available_ids = {line.service_id for line in preview.lines}
-            unknown_ids = requested_quantities.keys() - available_ids
-            if unknown_ids:
-                raise PaymentError(
-                    f"Services have no confirmed production data: {', '.join(sorted(unknown_ids))}",
-                    422,
-                )
-
-            adjusted_lines: list[PaymentLinePreview] = []
-            for line in preview.lines:
-                if line.service_id not in requested_quantities:
-                    continue
-                billing_quantity = requested_quantities.get(
-                    line.service_id,
-                    line.billing_quantity,
-                )
-                if billing_quantity > line.confirmed_quantity:
-                    raise PaymentError(
-                        f"Sản lượng thanh toán của {line.description} không được lớn hơn sản lượng xác nhận",
-                        422,
-                    )
-                line_amount = (billing_quantity * line.unit_price_snapshot).quantize(
-                    MONEY,
-                    rounding=ROUND_HALF_UP,
-                )
-                tax_amount = (line_amount * line.tax_rate).quantize(
-                    MONEY,
-                    rounding=ROUND_HALF_UP,
-                )
-                adjusted_lines.append(
-                    PaymentLinePreview(
-                        **line.model_dump(
-                            exclude={"billing_quantity", "line_amount", "tax_amount"}
-                        ),
-                        billing_quantity=billing_quantity,
-                        line_amount=line_amount,
-                        tax_amount=tax_amount,
-                    )
-                )
-
-            if not adjusted_lines:
-                raise PaymentError("Bảng thanh toán phải có ít nhất một hạng mục", 422)
-
-            subtotal = sum(
-                (line.line_amount for line in adjusted_lines),
-                Decimal("0"),
-            ).quantize(MONEY, rounding=ROUND_HALF_UP)
-            tax_amount = sum(
-                (line.tax_amount for line in adjusted_lines),
-                Decimal("0"),
-            ).quantize(MONEY, rounding=ROUND_HALF_UP)
-            preview = PaymentPreviewResponse(
-                **preview.model_dump(
-                    exclude={"lines", "subtotal", "tax_amount", "total_amount"}
-                ),
-                lines=adjusted_lines,
-                subtotal=subtotal,
-                tax_amount=tax_amount,
-                total_amount=(subtotal + tax_amount).quantize(
-                    MONEY,
-                    rounding=ROUND_HALF_UP,
-                ),
-            )
+        preview = self.preview(PaymentPeriodRequest(**request.model_dump()))
 
         try:
             payment = self.crud.create(
@@ -413,102 +342,7 @@ class PaymentService:
         change_type: str,
         revision_request_id: str | None = None,
     ) -> Payment:
-        current_tax_rate = (
-            payment.lines[0].tax_rate
-            if payment.lines
-            else Decimal("0.10")
-        )
-        tax_rate = (
-            request.tax_rate
-            if request.tax_rate is not None
-            else current_tax_rate
-        )
-
-        draft_lines = {
-            line.service_id: {
-                "description": line.description,
-                "confirmed_quantity": line.confirmed_quantity,
-                "billing_quantity": line.billing_quantity,
-                "unit_price": line.unit_price_snapshot,
-                "tax_rate": (
-                    line.tax_rate
-                    if request.tax_rate is None
-                    else request.tax_rate
-                ),
-            }
-            for line in payment.lines
-        }
-
-        production_records = None
-        for requested_line in request.lines or []:
-            service_id = requested_line.service_id
-
-            if requested_line.remove:
-                if service_id not in draft_lines:
-                    raise PaymentError(
-                        f"Payment line {service_id} was not found",
-                        404,
-                    )
-                del draft_lines[service_id]
-                continue
-
-            if service_id in draft_lines:
-                current_line = draft_lines[service_id]
-                current_line["billing_quantity"] = (
-                    requested_line.billing_quantity
-                )
-                if requested_line.tax_rate is not None:
-                    current_line["tax_rate"] = requested_line.tax_rate
-                continue
-
-            if production_records is None:
-                try:
-                    production_records = self.production.get_eligible_records(
-                        contract_id=payment.contract_id,
-                        period_start=payment.period_start,
-                        period_end=payment.period_end,
-                    )
-                except ConnectionError as exc:
-                    raise PaymentError(str(exc), 503) from exc
-            record = next(
-                (
-                    item
-                    for item in production_records
-                    if item.service_id == service_id
-                    and item.status in {"CONFIRMED", "RECONCILED"}
-                ),
-                None,
-            )
-            if record is None:
-                raise PaymentError(
-                    f"Service {service_id} has no confirmed production "
-                    "record for the payment period",
-                    422,
-                )
-            try:
-                unit_price = self.prices.get_effective_price(
-                    contract_id=payment.contract_id,
-                    service_id=service_id,
-                    business_date=payment.period_end,
-                )
-            except ConnectionError as exc:
-                raise PaymentError(str(exc), 503) from exc
-            except LookupError as exc:
-                raise PaymentError(str(exc), 422) from exc
-
-            draft_lines[service_id] = {
-                "description": record.description,
-                "confirmed_quantity": record.quantity,
-                "billing_quantity": requested_line.billing_quantity,
-                "unit_price": unit_price,
-                "tax_rate": (
-                    requested_line.tax_rate
-                    if requested_line.tax_rate is not None
-                    else tax_rate
-                ),
-            }
-
-        if not draft_lines:
+        if not payment.lines:
             raise PaymentError(
                 "Payment must retain at least one service line",
                 422,
@@ -516,32 +350,16 @@ class PaymentService:
 
         calculated_lines: list[PaymentLinePreview] = []
 
-        for service_id, values in draft_lines.items():
-            description = values["description"]
-            confirmed_quantity = values["confirmed_quantity"]
-            billing_quantity = values["billing_quantity"]
-            unit_price = values["unit_price"]
-            line_tax_rate = values["tax_rate"]
-            if billing_quantity > confirmed_quantity:
-                raise PaymentError(
-                    f"Billing quantity for {service_id} must not exceed "
-                    "the confirmed production quantity",
-                    422,
-                )
-
+        for line in payment.lines:
+            billing_quantity = line.confirmed_quantity
             line_amount = (
-                billing_quantity * unit_price
+                billing_quantity * line.unit_price_snapshot
             ).quantize(
                 MONEY,
                 rounding=ROUND_HALF_UP,
             )
-            applied_tax_rate = (
-                line_tax_rate
-                if line_tax_rate is not None
-                else tax_rate
-            )
             line_tax_amount = (
-                line_amount * applied_tax_rate
+                line_amount * request.tax_rate
             ).quantize(
                 MONEY,
                 rounding=ROUND_HALF_UP,
@@ -549,13 +367,13 @@ class PaymentService:
 
             calculated_lines.append(
                 PaymentLinePreview(
-                    service_id=service_id,
-                    description=description,
-                    confirmed_quantity=confirmed_quantity,
+                    service_id=line.service_id,
+                    description=line.description,
+                    confirmed_quantity=line.confirmed_quantity,
                     billing_quantity=billing_quantity,
-                    unit_price_snapshot=unit_price,
+                    unit_price_snapshot=line.unit_price_snapshot,
                     line_amount=line_amount,
-                    tax_rate=applied_tax_rate,
+                    tax_rate=request.tax_rate,
                     tax_amount=line_tax_amount,
                 )
             )
@@ -574,7 +392,7 @@ class PaymentService:
             contract_id=payment.contract_id,
             period_start=payment.period_start,
             period_end=payment.period_end,
-            tax_rate=tax_rate,
+            tax_rate=request.tax_rate,
             lines=calculated_lines,
             subtotal=subtotal,
             tax_amount=tax_amount,
@@ -584,26 +402,12 @@ class PaymentService:
             ),
         )
 
-        current_line_values = {
-            line.service_id: (
-                line.billing_quantity,
-                line.tax_rate,
-            )
-            for line in payment.lines
-        }
-        updated_line_values = {
-            line.service_id: (
-                line.billing_quantity,
-                line.tax_rate,
-            )
-            for line in calculated_lines
-        }
         if (
             change_type == "REVISION_ADJUSTMENT"
-            and current_line_values == updated_line_values
+            and all(line.tax_rate == request.tax_rate for line in payment.lines)
         ):
             raise PaymentError(
-                "Adjustment must change at least one payment line",
+                "Adjustment must change the tax rate",
                 422,
             )
 
@@ -715,7 +519,6 @@ class PaymentService:
             request=PaymentUpdate(
                 reason=data.adjustment_note,
                 tax_rate=data.tax_rate,
-                lines=data.lines,
             ),
             change_type="REVISION_ADJUSTMENT",
             revision_request_id=data.revision_request_id,
@@ -734,4 +537,4 @@ class PaymentService:
             },
         )
 
-        return updated
+        return self.submit(db, updated.id)

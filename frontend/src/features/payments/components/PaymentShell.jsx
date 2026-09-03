@@ -6,14 +6,14 @@ import "../payment.css";
 
 const navigation = [
   { to: "/payments", label: "Bảng thanh toán", icon: WalletCards, end: true },
-  { to: "/payments?status=REVISION_REQUESTED", label: "Hồ sơ điều chỉnh", icon: FilePenLine },
+  { to: "/payments?view=adjustments", label: "Hồ sơ điều chỉnh", icon: FilePenLine },
 ];
 
 export function PaymentShell() {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
-  const selectedStatus = new URLSearchParams(location.search).get("status");
+  const adjustmentView = new URLSearchParams(location.search).get("view") === "adjustments";
 
   function handleLogout() {
     logout();
@@ -24,7 +24,7 @@ export function PaymentShell() {
     <div className="pay-shell">
       <aside className="pay-sidebar">
         <div className="pay-brand"><span><Files size={21} /></span><div><strong>Quản lý Thanh toán</strong><small>Hệ thống doanh nghiệp</small></div></div>
-        <nav>{navigation.map(({ to, label, icon: Icon }, index) => { const [path, query] = to.split("?"); const active = index === 0 ? location.pathname === path && selectedStatus !== "REVISION_REQUESTED" : location.pathname === path && location.search === `?${query}`; return <Link key={label} to={to} className={`pay-nav-link${active ? " active" : ""}`}><Icon size={18} />{label}</Link>; })}</nav>
+        <nav>{navigation.map(({ to, label, icon: Icon }, index) => { const path = to.split("?")[0]; const active = location.pathname === path && (index === 0 ? !adjustmentView : adjustmentView); return <Link key={label} to={to} className={`pay-nav-link${active ? " active" : ""}`}><Icon size={18} />{label}</Link>; })}</nav>
         <button className="pay-logout-button" type="button" onClick={handleLogout}>
           <LogOut size={18} />
           Đăng xuất

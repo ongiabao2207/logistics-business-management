@@ -32,12 +32,12 @@ const workflowByStatus = {
   ],
   REVISION_REQUESTED: [
     { state: "done", icon: CheckCircle2, title: "Kế toán đã gửi", description: "Đã trình bảng thanh toán để phê duyệt." },
-    { state: "revision", icon: AlertCircle, title: "Pháp chế yêu cầu chỉnh sửa", description: "Người yêu cầu: Nguyễn Văn B (Nhân viên Pháp chế)", reason: "Sản lượng thanh toán chưa thống nhất với hồ sơ đối soát." },
+    { state: "revision", icon: AlertCircle, title: "Pháp chế yêu cầu chỉnh sửa", description: "Người yêu cầu: Nguyễn Văn B (Nhân viên Pháp chế)", reason: "Thuế suất chưa thống nhất với hồ sơ đối soát." },
     { title: "Chờ kế toán gửi lại" },
   ],
   REJECTED: [
     { state: "done", icon: CheckCircle2, title: "Kế toán đã gửi", description: "Đã trình bảng thanh toán để phê duyệt." },
-    { state: "rejected", icon: XCircle, title: "Bảng thanh toán bị từ chối", description: "Người xử lý: Nguyễn Văn B (Nhân viên Pháp chế)", reason: "Thông tin và sản lượng thanh toán chưa phù hợp với biên bản đối soát." },
+    { state: "rejected", icon: XCircle, title: "Bảng thanh toán bị từ chối", description: "Người xử lý: Nguyễn Văn B (Nhân viên Pháp chế)", reason: "Thông tin thuế suất chưa phù hợp với biên bản đối soát." },
   ],
   APPROVED: [
     { state: "done", icon: CheckCircle2, title: "Kế toán đã gửi" },
@@ -54,7 +54,18 @@ const workflowByStatus = {
 };
 
 function ApprovalTimeline({ payment }) {
-  const items = workflowByStatus[payment.status] ?? workflowByStatus.DRAFT;
+  const latestRevision = [...(payment.adjustments ?? [])]
+    .filter((item) => item.change_type === "REVISION_ADJUSTMENT")
+    .sort((left, right) => new Date(right.created_at) - new Date(left.created_at))[0];
+  const resubmitted = latestRevision && ["PENDING_APPROVAL", "REVISION_REQUESTED"].includes(payment.status);
+  const items = resubmitted
+    ? [
+      { state: "done", icon: CheckCircle2, title: "Kế toán đã gửi lần đầu", description: "Bảng thanh toán đã được đưa vào quy trình phê duyệt." },
+      { state: "done", icon: AlertCircle, title: "Người duyệt yêu cầu chỉnh sửa", description: latestRevision.adjustment_note },
+      { state: "done", icon: CheckCircle2, title: "Kế toán đã điều chỉnh và gửi lại", description: `Thuế suất mới: ${Number(latestRevision.new_tax_rate) * 100}%` },
+      { state: "current", icon: Clock3, title: "Đang chờ phê duyệt lại", description: "Bảng thanh toán đang chờ người duyệt xử lý." },
+    ]
+    : workflowByStatus[payment.status] ?? workflowByStatus.DRAFT;
   const updatedAt = payment.updated_at
     ? new Date(payment.updated_at).toLocaleString("vi-VN")
     : "Đang cập nhật";
@@ -73,10 +84,6 @@ function ApprovalTimeline({ payment }) {
           </div>
         </div>
       ))}
-      <div className="approval-api-note">
-        {payment.approval_instance_id ? `Mã quy trình: ${payment.approval_instance_id}. ` : ""}
-        Người duyệt, thời gian và lý do đang dùng dữ liệu mẫu cho đến khi Approval Service cung cấp API lịch sử.
-      </div>
     </aside>
   );
 }
@@ -100,6 +107,10 @@ export function PaymentApprovalPage() {
   const customerName = getCustomerName(payment.contract_id, payment.customer_id);
   const canManage = user?.role === ROLES.ACCOUNTANT;
   const canReview = REVIEW_ROLES.includes(user?.role);
+  const hasAppliedRevision = (payment.adjustments ?? []).some((item) => item.change_type === "REVISION_ADJUSTMENT");
+  const displayedStatus = hasAppliedRevision && ["PENDING_APPROVAL", "REVISION_REQUESTED"].includes(payment.status)
+    ? "RESUBMITTED_PENDING_APPROVAL"
+    : payment.status;
 
   return <>
     <Link className="pay-back" to="/payments"><ArrowLeft size={16} />Quay lại danh sách</Link>
@@ -109,10 +120,10 @@ export function PaymentApprovalPage() {
         <p>{customerName} · {payment.contract_id} · Kỳ {period}</p>
       </div>
       <div>
-        <PaymentStatus status={payment.status} />
+        <PaymentStatus status={displayedStatus} />
         {canManage && payment.status === "DRAFT" ? <Link className="pay-button outline" to={`/payments/${payment.id}/edit`}><Pencil size={16} />Chỉnh sửa</Link> : null}
         {canManage && payment.status === "DRAFT" ? <button className="pay-button primary" onClick={() => submit.mutate(payment.id, { onSuccess: () => navigate(`/payments/${payment.id}/approval`) })}><Send size={16} />Gửi phê duyệt</button> : null}
-        {canManage && ["REVISION_REQUESTED", "REJECTED"].includes(payment.status) ? <Link className="pay-button primary" to={`/payments/${payment.id}/adjust`}><FilePenLine size={16} />Điều chỉnh</Link> : null}
+        {canManage && !hasAppliedRevision && ["REVISION_REQUESTED", "REJECTED"].includes(payment.status) ? <Link className="pay-button primary" to={`/payments/${payment.id}/adjust`}><FilePenLine size={16} />Điều chỉnh</Link> : null}
         {canReview && payment.status === "PENDING_APPROVAL" ? <button className="pay-button outline" disabled={review.isPending} onClick={() => review.mutate({ id: payment.id, decision: "REJECT" })}><XCircle size={16} />Từ chối</button> : null}
         {canReview && payment.status === "PENDING_APPROVAL" ? <button className="pay-button primary" disabled={review.isPending} onClick={() => review.mutate({ id: payment.id, decision: "APPROVE" })}><CheckCircle2 size={16} />Phê duyệt</button> : null}
       </div>

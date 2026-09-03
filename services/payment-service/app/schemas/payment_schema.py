@@ -53,60 +53,14 @@ class PaymentPreviewResponse(PaymentPeriodRequest):
     total_amount: Decimal
 
 
-class PaymentCreateLine(ApiModel):
-    model_config = ConfigDict(extra="forbid")
-
-    service_id: str = Field(min_length=1, max_length=100)
-    billing_quantity: Decimal = Field(gt=0)
-
-
 class PaymentCreate(PaymentPeriodRequest):
-    lines: list[PaymentCreateLine] | None = Field(default=None, min_length=1)
-
-    @model_validator(mode="after")
-    def validate_unique_lines(self):
-        if self.lines is not None:
-            service_ids = [line.service_id for line in self.lines]
-            if len(service_ids) != len(set(service_ids)):
-                raise ValueError("Payment lines must have unique service_id values")
-        return self
-
-
-class PaymentLineUpdate(ApiModel):
     model_config = ConfigDict(extra="forbid")
-
-    service_id: str = Field(min_length=1, max_length=100)
-    billing_quantity: Decimal | None = Field(default=None, gt=0)
-    tax_rate: Decimal | None = Field(default=None, ge=0, le=1)
-    remove: bool = False
-
-    @model_validator(mode="after")
-    def validate_line_action(self):
-        if not self.remove and self.billing_quantity is None:
-            raise ValueError(
-                "billing_quantity is required unless remove is true"
-            )
-        return self
-
 
 class PaymentUpdate(ApiModel):
     model_config = ConfigDict(extra="forbid")
 
     reason: str = Field(min_length=3, max_length=1000)
-    tax_rate: Decimal | None = Field(default=None, ge=0, le=1)
-    lines: list[PaymentLineUpdate] | None = Field(default=None, min_length=1)
-
-    @model_validator(mode="after")
-    def validate_update(self):
-        if self.tax_rate is None and self.lines is None:
-            raise ValueError("At least one of tax_rate or lines must be provided")
-
-        if self.lines is not None:
-            service_ids = [line.service_id for line in self.lines]
-            if len(service_ids) != len(set(service_ids)):
-                raise ValueError("Payment lines must have unique service_id values")
-
-        return self
+    tax_rate: Decimal = Field(ge=0, le=1)
 
 
 class PaymentLineResponse(PaymentLinePreview):
@@ -119,18 +73,7 @@ class AdjustmentCreate(ApiModel):
 
     revision_request_id: str = Field(min_length=1, max_length=100)
     adjustment_note: str = Field(min_length=3, max_length=2000)
-    tax_rate: Decimal | None = Field(default=None, ge=0, le=1)
-    lines: list[PaymentLineUpdate] | None = Field(default=None, min_length=1)
-
-    @model_validator(mode="after")
-    def validate_adjustment(self):
-        if self.tax_rate is None and self.lines is None:
-            raise ValueError("At least one of tax_rate or lines must be provided")
-        if self.lines is not None:
-            service_ids = [line.service_id for line in self.lines]
-            if len(service_ids) != len(set(service_ids)):
-                raise ValueError("Adjustment lines must have unique service_id values")
-        return self
+    tax_rate: Decimal = Field(ge=0, le=1)
 
 
 class AdjustmentResponse(ApiModel):

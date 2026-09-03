@@ -63,3 +63,235 @@ button, input, select, textarea { font:inherit; }
 @keyframes pay-spin {
   to { transform: rotate(360deg); }
 }
+
+.pay-status.is-resubmitted {
+  background: #dfeaff;
+  color: #17458f;
+}
+
+/* Payment tax-only workflow layout */
+.create-detail > header {
+  gap: 20px;
+}
+.create-tax-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+.create-tax-field input {
+  width: 100px;
+  min-height: 38px;
+  border: 1px solid #aeb8cc;
+  border-radius: 4px;
+  padding: 0 10px;
+}
+.create-detail .pay-table-scroll,
+.draft-lines .pay-table-scroll,
+.revision-lines .pay-table-scroll {
+  overflow-x: hidden;
+}
+.create-detail .pay-lines,
+.draft-lines .pay-lines,
+.revision-lines .pay-lines {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+.pay-lines th:nth-child(1) { width: 29%; }
+.pay-lines th:nth-child(2) { width: 13%; }
+.pay-lines th:nth-child(3) { width: 14%; }
+.pay-lines th:nth-child(4) { width: 14%; }
+.pay-lines th:nth-child(5) { width: 10%; }
+.pay-lines th:nth-child(6) { width: 20%; }
+.pay-lines th:nth-child(4),
+.pay-lines td:nth-child(4),
+.pay-lines th:nth-child(6),
+.pay-lines td:nth-child(6) {
+  text-align: right;
+}
+.pay-lines th:nth-child(5),
+.pay-lines td:nth-child(5) {
+  text-align: center;
+}
+.payment-edit-layout {
+  display: grid;
+  gap: 16px;
+}
+.payment-edit-layout h3 {
+  margin: 0 0 14px;
+}
+.compact-common-info > div {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.compact-common-info label {
+  margin-top: 0;
+  min-width: 0;
+}
+.compact-common-info input {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.revision-edit-panel {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 18px;
+  padding: 16px;
+}
+.revision-edit-panel label {
+  display: grid;
+  gap: 7px;
+  font-weight: 700;
+}
+.revision-edit-panel input,
+.revision-edit-panel textarea {
+  width: 100%;
+  border: 1px solid #b8c0d1;
+  border-radius: 3px;
+  padding: 10px;
+}
+.revision-edit-panel input {
+  min-height: 44px;
+}
+.revision-edit-panel textarea {
+  min-height: 70px;
+  resize: vertical;
+}
+.edit-lower-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.edit-lower-grid .pay-totals {
+  width: 100%;
+  margin: 0;
+}
+.payment-edit-layout .draft-history {
+  margin-top: 0;
+}
+.payment-edit-layout .revision-total,
+.payment-edit-layout .revision-history {
+  grid-column: auto;
+}
+
+/* Readable type without wasting the available table width. */
+.create-detail > header {
+  padding: 16px 20px;
+  font-size: 17px;
+}
+.create-detail .create-tax-field {
+  font-size: 16px;
+}
+.create-detail .create-tax-field input {
+  font-size: 17px;
+  font-weight: 700;
+}
+.create-detail .pay-lines th,
+.draft-lines .pay-lines th,
+.revision-lines .pay-lines th {
+  padding: 15px 10px;
+  font-size: 11px;
+}
+.create-detail .pay-lines td,
+.draft-lines .pay-lines td,
+.revision-lines .pay-lines td {
+  padding: 16px 10px;
+  font-size: 16px;
+}
+.create-detail .pay-totals {
+  font-size: 16px;
+}
+.create-detail .pay-totals .grand {
+  font-size: 17px;
+}
+.payment-edit-layout {
+  font-size: 16px;
+}
+.payment-edit-layout h3 {
+  font-size: 19px;
+}
+.payment-edit-layout label {
+  font-size: 15px;
+}
+.payment-edit-layout input,
+.payment-edit-layout textarea {
+  font-size: 16px;
+}
+.payment-edit-layout .revision-edit-panel {
+  padding: 14px 18px;
+}
+.payment-edit-layout .revision-edit-panel textarea {
+  min-height: 58px;
+}
+.payment-edit-layout .compact-common-info input {
+  font-size: 15px;
+  font-weight: 600;
+}
+.payment-edit-layout .draft-history p,
+.payment-edit-layout .revision-history p {
+  font-size: 14px;
+  line-height: 1.45;
+}
+.payment-edit-layout .pay-totals {
+  font-size: 16px;
+}
+.payment-edit-layout .pay-totals .grand {
+  font-size: 18px;
+}
+.payment-edit-layout .history-entry {
+  padding: 13px 14px;
+  border-left: 3px solid #17458f;
+  background: #f8faff;
+}
+.payment-edit-layout .history-entry + .history-entry {
+  margin-top: 10px;
+}
+.history-entry-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.history-entry-heading strong {
+  color: #173f88;
+  font-size: 16px;
+}
+.history-entry-heading time {
+  color: #737a88;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.payment-edit-layout .history-entry p {
+  margin: 7px 0 0;
+}
+.history-tax-change {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #394760 !important;
+}
+.history-tax-change b:last-child {
+  color: #073487;
+}
+
+@media (max-width: 1100px) {
+  .compact-common-info > div {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .compact-common-info > div,
+  .revision-edit-panel,
+  .edit-lower-grid {
+    grid-template-columns: 1fr;
+  }
+  .create-detail > header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

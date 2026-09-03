@@ -23,6 +23,15 @@ import { usePaymentContracts } from "../hooks/usePaymentContracts.js";
 import { usePayments } from "../hooks/usePayments.js";
 import { paymentStatusLabels } from "../types/index.js";
 
+function displayStatus(payment) {
+  const hasAppliedRevision = (payment.adjustments ?? []).some(
+    (item) => item.change_type === "REVISION_ADJUSTMENT",
+  );
+  return hasAppliedRevision && ["PENDING_APPROVAL", "REVISION_REQUESTED"].includes(payment.status)
+    ? "RESUBMITTED_PENDING_APPROVAL"
+    : payment.status;
+}
+
 export function PaymentListPage() {
   usePageTitle("Quản lý Bảng thanh toán");
   const { user } = useAuth();
@@ -34,6 +43,7 @@ export function PaymentListPage() {
   const pageSize = 5;
 
   const status = params.get("status") ?? "";
+  const adjustmentView = params.get("view") === "adjustments";
   const year = params.get("year") ?? "";
   const month = params.get("month") ?? "";
 
@@ -57,8 +67,13 @@ export function PaymentListPage() {
     return payments.map((item) => ({
       ...item,
       customer_name: getCustomerName(item.contract_id, item.customer_id),
+      display_status: displayStatus(item),
     })).filter((item) => {
-      const matchesStatus = !status || item.status === status;
+      const matchesAdjustmentView = !adjustmentView || [
+        "REVISION_REQUESTED",
+        "RESUBMITTED_PENDING_APPROVAL",
+      ].includes(item.display_status);
+      const matchesStatus = matchesAdjustmentView && (!status || item.display_status === status);
       const itemDate = new Date(item.period_start);
       const matchesYear = !year || String(itemDate.getFullYear()) === year;
       const matchesMonth = !month || String(itemDate.getMonth() + 1) === month;
@@ -70,8 +85,11 @@ export function PaymentListPage() {
         );
 
       return matchesStatus && matchesYear && matchesMonth && matchesKeyword;
+    }).sort((left, right) => {
+      const createdDifference = new Date(right.created_at) - new Date(left.created_at);
+      return createdDifference || right.id.localeCompare(left.id);
     });
-  }, [payments, keyword, year, month, status, getCustomerName]);
+  }, [payments, keyword, year, month, status, adjustmentView, getCustomerName]);
 
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
   const currentPage = Math.min(page, pageCount);
@@ -122,7 +140,7 @@ export function PaymentListPage() {
       label: "Đang chờ phê duyệt",
       value: `${
         payments.filter(
-          (item) => item.status === "PENDING_APPROVAL",
+          (item) => ["PENDING_APPROVAL", "RESUBMITTED_PENDING_APPROVAL"].includes(displayStatus(item)),
         ).length
       } hồ sơ`,
       icon: Clock3,
@@ -142,7 +160,7 @@ export function PaymentListPage() {
       label: "Cần điều chỉnh",
       value: `${
         payments.filter(
-          (item) => item.status === "REVISION_REQUESTED",
+          (item) => displayStatus(item) === "REVISION_REQUESTED",
         ).length
       } bảng`,
       icon: AlertCircle,
@@ -309,7 +327,7 @@ export function PaymentListPage() {
                     </td>
 
                     <td>
-                      <PaymentStatus status={item.status} />
+                      <PaymentStatus status={item.display_status} />
                     </td>
 
                     <td>{formatDate(item.created_at)}</td>
