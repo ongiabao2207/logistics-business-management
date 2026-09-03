@@ -31,6 +31,7 @@ export function PaymentCustomersPage() {
     contracts,
     error,
     getCustomerId,
+    getCustomerName,
     isPending,
     refetch,
   } = usePaymentContracts();
@@ -46,14 +47,14 @@ export function PaymentCustomersPage() {
     return {
       contractId: contract.contract_id,
       customerId,
-      customerName: contract.customer_name,
+      customerName: getCustomerName(contract.contract_id, customerId),
       status: contract.status,
       validFrom: contract.valid_from,
       validTo: contract.valid_to,
       existingPayment,
       ready,
     };
-  }), [contracts, getCustomerId, paymentsQuery.data, periodDates.end, periodDates.start]);
+  }), [contracts, getCustomerId, getCustomerName, paymentsQuery.data, periodDates.end, periodDates.start]);
 
   const readyCandidates = candidates.filter((item) => item.ready);
   const selectedCandidate = candidates.find((item) => (
@@ -115,7 +116,7 @@ export function PaymentCustomersPage() {
     </section>
 
     {isPending || paymentsQuery.isPending ? <PaymentState title="Đang kiểm tra dữ liệu hợp đồng và bảng thanh toán..." /> : null}
-    {error ? <PaymentState title="Không thể tải Contract Service" description={error.message} /> : null}
+    {error ? <PaymentState title="Không thể tải dữ liệu hợp đồng hoặc khách hàng" description={error.message} /> : null}
     {paymentsQuery.error ? <PaymentState title="Không thể kiểm tra bảng thanh toán đã tồn tại" description={paymentsQuery.error.message} /> : null}
     {!isPending && !paymentsQuery.isPending && !error && !paymentsQuery.error && !candidates.length ? <PaymentState title="Chưa có hợp đồng" description="Contract Service chưa có dữ liệu hợp đồng." /> : null}
 
@@ -150,6 +151,6 @@ export function PaymentCustomersPage() {
       <button type="button" onClick={() => setSelected([])}>Hủy chọn</button>
       {selectedCandidate ? <Link className="pay-button light" to={`/payments/new?customer_id=${selectedCandidate.customerId}&contract_id=${selectedCandidate.contractId}&period=${periodKey}`}>Lập bảng đã chọn</Link> : null}
     </div> : null}
-    <p className="pay-demo-note">Tên khách hàng, mã hợp đồng, trạng thái và thời hạn được lấy từ Contract Service. Mã khách hàng tạm đối chiếu từ dữ liệu mẫu cho đến khi Customer Service hoàn chỉnh.</p>
+    <p className="pay-demo-note">Tên và mã khách hàng được lấy từ Customer Service; thông tin hợp đồng được lấy từ Contract Service.</p>
   </>;
 }
