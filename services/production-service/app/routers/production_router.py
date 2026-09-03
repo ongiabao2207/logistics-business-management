@@ -40,12 +40,12 @@ def create_draft(payload: ProductionPeriodCreate, current_user: Annotated[Curren
 
 
 @router.get("", response_model=list[ProductionPeriodResponse])
-def list_production_periods(_user: Annotated[CurrentUser, Depends(require_roles("ROLE_OPERATION", "ROLE_LEGAL", "ROLE_DIRECTOR"))], customer_id: str | None = Query(default=None), contract_id: str | None = Query(default=None), service: ProductionService = Depends(get_production_service)) -> list[ProductionPeriodResponse]:
+def list_production_periods(_user: Annotated[CurrentUser, Depends(require_roles("ROLE_OPERATION", "ROLE_ACCOUNTANT", "ROLE_LEGAL", "ROLE_DIRECTOR"))], customer_id: str | None = Query(default=None), contract_id: str | None = Query(default=None), service: ProductionService = Depends(get_production_service)) -> list[ProductionPeriodResponse]:
     return service.list_periods(customer_id, contract_id)
 
 
 @router.get("/{period_id}", response_model=ProductionPeriodDetailResponse)
-def get_production_period(period_id: int, _user: Annotated[CurrentUser, Depends(require_roles("ROLE_OPERATION", "ROLE_LEGAL", "ROLE_DIRECTOR"))], service: ProductionService = Depends(get_production_service)) -> ProductionPeriodDetailResponse:
+def get_production_period(period_id: int, _user: Annotated[CurrentUser, Depends(require_roles("ROLE_OPERATION", "ROLE_ACCOUNTANT", "ROLE_LEGAL", "ROLE_DIRECTOR"))], service: ProductionService = Depends(get_production_service)) -> ProductionPeriodDetailResponse:
     period = service.get_period(period_id)
     return ProductionPeriodDetailResponse(**ProductionPeriodResponse.model_validate(period).model_dump(), totals=service.totals(period))
 

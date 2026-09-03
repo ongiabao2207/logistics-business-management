@@ -1,7 +1,7 @@
 import { ArrowRight, CreditCard, Factory, FileText, KeyRound, Tags } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { hasRole, ROLE_LABELS, ROLES } from "../../identity/constants/permissions";
+import { hasRole, MODULE_ROLES, ROLE_LABELS, ROLES } from "../../identity/constants/permissions";
 import { useAuth } from "../../identity/hooks/useAuth";
 import { usePageTitle } from "../../../shared/hooks/usePageTitle";
 
@@ -18,7 +18,7 @@ const modules = [
   { title: "Người dùng & phân quyền", description: "Quản lý tài khoản và vai trò hệ thống", path: "/identity", icon: KeyRound, roles: [ROLES.ADMIN], stat: "48 tài khoản" },
   { title: "Hợp đồng", description: "Quản lý, xem chi tiết và xử lý hợp đồng", path: "/contracts", icon: FileText, roles: [ROLES.SALE, ROLES.LEGAL, ROLES.DIRECTOR], stat: "Danh sách hợp đồng" },
   { title: "Bảng giá", description: "Quản lý, xem chi tiết và xử lý bảng giá", path: "/prices", icon: Tags, roles: [ROLES.SALE, ROLES.LEGAL, ROLES.DIRECTOR], stat: "Danh sách bảng giá" },
-  { title: "Sản lượng", description: "Quản lý, xem chi tiết và xử lý sản lượng", path: "/production", icon: Factory, roles: [ROLES.OPERATION, ROLES.LEGAL, ROLES.DIRECTOR], stat: "Danh sách kỳ sản lượng" },
+  { title: "Sản lượng", description: "Quản lý, xem chi tiết và xử lý sản lượng", path: "/production", icon: Factory, roles: MODULE_ROLES.production, stat: "Danh sách kỳ sản lượng" },
   { title: "Thanh toán", description: "Lập và kiểm tra bảng thanh toán", path: "/payments", icon: CreditCard, roles: [ROLES.ACCOUNTANT, ROLES.DIRECTOR, ROLES.LEGAL], stat: "9 hồ sơ" },
 ];
 

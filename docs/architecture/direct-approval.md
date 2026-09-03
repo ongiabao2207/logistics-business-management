@@ -8,7 +8,7 @@ The system intentionally uses direct approval in each owning business service. A
 |---|---|---|
 | `ROLE_ADMIN` | Identity | Manage user accounts |
 | `ROLE_SALE` | Contracts, Prices | Create and manage records |
-| `ROLE_ACCOUNTANT` | Payments | Create and manage payment statements |
+| `ROLE_ACCOUNTANT` | Payments, Production | Create and manage payment statements; list and view production details |
 | `ROLE_OPERATION` | Production | Create and manage production periods |
 | `ROLE_LEGAL`, `ROLE_DIRECTOR` | Contracts, Prices, Payments, Production | List, view detail, approve, reject |
 
