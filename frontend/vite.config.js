@@ -10,6 +10,8 @@ export default defineConfig({
       "/api/v1/accounts": "http://localhost:8005",
       "/api/v1/roles": "http://localhost:8005",
 
+      "/api/v1/customers": "http://localhost:8006",
+
       "/api/v1/contracts": "http://localhost:8001",
 
       "/api/v1/services": "http://localhost:8002",
