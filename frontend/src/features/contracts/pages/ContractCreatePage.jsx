@@ -7,7 +7,10 @@ import { AddContractServiceModal } from "../components/AddContractServiceModal.j
 import { ContractCreateCustomerCard } from "../components/ContractCreateCustomerCard.jsx";
 import { ContractCreateTermCard } from "../components/ContractCreateTermCard.jsx";
 import { ContractServiceLinesTable } from "../components/ContractServiceLinesTable.jsx";
-import { parseDisplayDateToIso } from "../components/contractFormUtils";
+import {
+  getLocalTodayIso,
+  parseDisplayDateToIso,
+} from "../components/contractFormUtils";
 import {
   formatContractCurrency,
   getContractLineTotal,
@@ -49,8 +52,12 @@ function validateForm(form, serviceLines) {
     return "Ngày hiệu lực và ngày hết hạn phải theo định dạng dd/mm/yyyy.";
   }
 
-  if (new Date(validFrom).getTime() > new Date(validTo).getTime()) {
-    return "Ngày hiệu lực không được sau ngày hết hạn.";
+  if (validFrom <= getLocalTodayIso()) {
+    return "Ngày hiệu lực phải lớn hơn ngày hiện tại.";
+  }
+
+  if (validTo < validFrom) {
+    return "Ngày hết hạn phải lớn hơn hoặc bằng ngày hiệu lực.";
   }
 
   if (!form.paymentTerms.trim()) {

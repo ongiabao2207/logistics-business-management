@@ -1,6 +1,8 @@
 .contract-page {
   display: grid;
   gap: 28px;
+  min-height: calc(100vh - 68px);
+  padding: 30px 34px 42px;
 }
 
 .contract-page-heading {
@@ -26,8 +28,12 @@
 .contract-create-button {
   min-height: 54px;
   min-width: 220px;
-  background: #073282;
-  box-shadow: 0 8px 18px rgb(7 50 130 / 18%);
+  background: #0a2c68;
+  box-shadow: 0 8px 18px rgb(10 44 104 / 18%);
+}
+
+.contract-create-button:hover {
+  background: #0d367d;
 }
 
 .contract-create-button:disabled {
@@ -124,6 +130,8 @@
   border-color: #8b98aa;
   border-width: 1px;
   background: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
   padding-right: 42px;
   box-shadow:
     inset 0 0 0 1px rgb(82 97 116 / 6%),
@@ -612,7 +620,15 @@
 .contract-modal-footer .button {
   min-width: 124px;
   min-height: 42px;
-  background: #073282;
+}
+
+.contract-modal-footer .button:not(.secondary) {
+  background: #0a2c68;
+  box-shadow: 0 8px 18px rgb(10 44 104 / 16%);
+}
+
+.contract-modal-footer .button:not(.secondary):hover {
+  background: #0d367d;
 }
 
 .contract-modal-footer .button.secondary {
@@ -936,6 +952,15 @@
   min-width: 132px;
 }
 
+.contract-create-footer .button:not(.secondary) {
+  background: #0a2c68;
+  box-shadow: 0 8px 18px rgb(10 44 104 / 16%);
+}
+
+.contract-create-footer .button:not(.secondary):hover {
+  background: #0d367d;
+}
+
 .contract-create-footer .button:disabled,
 .contract-add-service-modal .button:disabled {
   cursor: not-allowed;
@@ -989,6 +1014,17 @@
   min-height: 42px;
 }
 
+.contract-service-lines header .button,
+.contract-add-service-modal footer .button:not(.secondary) {
+  background: #0a2c68;
+  box-shadow: 0 8px 18px rgb(10 44 104 / 16%);
+}
+
+.contract-service-lines header .button:hover,
+.contract-add-service-modal footer .button:not(.secondary):hover {
+  background: #0d367d;
+}
+
 @media (max-width: 1100px) {
   .contract-filter-grid,
   .contract-kpi-grid,
@@ -1007,6 +1043,10 @@
 }
 
 @media (max-width: 720px) {
+  .contract-page {
+    padding: 22px 16px 32px;
+  }
+
   .contract-page-heading,
   .contract-pagination,
   .contract-total-panel,

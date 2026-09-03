@@ -124,7 +124,10 @@ services:
     restart: unless-stopped
     environment:
       CONTRACT_SERVICE_DATABASE_URL: postgresql+psycopg://${CONTRACT_DB_USER:-contract_user}:${CONTRACT_DB_PASSWORD:-contract_password}@contract-db:5432/${CONTRACT_DB_NAME:-contract_db}
-      CONTRACT_SERVICE_CUSTOMER_CLIENT_MODE: fake
+      CONTRACT_SERVICE_CUSTOMER_CLIENT_MODE: http
+      CONTRACT_SERVICE_CUSTOMER_SERVICE_URL: http://customer-service:8000/api/v1
+      CONTRACT_SERVICE_CUSTOMER_CACHE_ENABLED: "true"
+      CONTRACT_SERVICE_CUSTOMER_CACHE_TTL_SECONDS: 1800
       CONTRACT_SERVICE_PRICE_CLIENT_MODE: http
       CONTRACT_SERVICE_PRICE_SERVICE_URL: http://price-service:8001/api/v1
       CONTRACT_SERVICE_REDIS_URL: redis://redis:6379/0
@@ -145,6 +148,8 @@ services:
         condition: service_healthy
       price-service:
         condition: service_started
+      customer-service:
+        condition: service_started
       redis:
         condition: service_started
       identity-service:
@@ -160,6 +165,52 @@ services:
     networks:
       - gateway
       - contract-data
+
+  customer-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${CUSTOMER_DB_NAME:-customer_db}
+      POSTGRES_USER: ${CUSTOMER_DB_USER:-customer_user}
+      POSTGRES_PASSWORD: ${CUSTOMER_DB_PASSWORD:-customer_password}
+    ports:
+      - "127.0.0.1:${CUSTOMER_DB_PORT:-5437}:5432"
+    volumes:
+      - customer-db-data:/var/lib/postgresql/data
+      - ../../services/customer-service/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - customer-data
+
+  customer-service:
+    build:
+      context: ../../services/customer-service
+    restart: unless-stopped
+    environment:
+      CUSTOMER_SERVICE_DATABASE_URL: postgresql+psycopg://${CUSTOMER_DB_USER:-customer_user}:${CUSTOMER_DB_PASSWORD:-customer_password}@customer-db:5432/${CUSTOMER_DB_NAME:-customer_db}
+      CUSTOMER_SERVICE_IDENTITY_JWKS_URL: http://identity-service:8000/.well-known/jwks.json
+      CUSTOMER_SERVICE_JWT_ISSUER: identity-service
+      CUSTOMER_SERVICE_JWT_AUDIENCE: logistics-api
+    ports:
+      - "127.0.0.1:${CUSTOMER_SERVICE_PORT:-8006}:8000"
+    depends_on:
+      customer-db:
+        condition: service_healthy
+      identity-service:
+        condition: service_started
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=lbm-gateway
+      - traefik.http.routers.customer.rule=Host(`customer.localhost`) || PathPrefix(`/api/v1/customers`)
+      - traefik.http.routers.customer.entrypoints=web
+      - traefik.http.services.customer.loadbalancer.server.port=8000
+    networks:
+      - gateway
+      - customer-data
 
   price-db:
     image: postgres:16-alpine
@@ -321,6 +372,7 @@ services:
 volumes:
   identity-db-data:
   contract-db-data:
+  customer-db-data:
   price-db-data:
   production-db-data:
   payment-db-data:
@@ -334,6 +386,8 @@ networks:
     name: lbm-identity-data
   contract-data:
     name: lbm-contract-data
+  customer-data:
+    name: lbm-customer-data
   price-data:
     name: lbm-price-data
   production-data:

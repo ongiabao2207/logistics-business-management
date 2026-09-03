@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app.clients.customer_client import CustomerClient
+from app.clients.customer_client import CustomerClient, CustomerClientError
 from app.clients.price_client import PriceClient, PriceClientError, ServicePriceInfo
 from app.crud.contract_crud import (
     ContractCRUD,
@@ -34,6 +34,10 @@ class CustomerNotFoundError(ContractValidationError):
 
 
 class CustomerInactiveError(ContractValidationError):
+    pass
+
+
+class CustomerServiceDependencyError(ContractValidationError):
     pass
 
 
@@ -206,7 +210,7 @@ class ContractService:
 
         valid_from = contract_in.valid_from or contract.valid_from
         valid_to = contract_in.valid_to or contract.valid_to
-        self._validate_update_effective_dates(valid_from, valid_to)
+        self._validate_effective_dates(valid_from, valid_to)
 
         service_prices = None
         if contract_in.services is not None:
@@ -231,17 +235,11 @@ class ContractService:
         self._validate_effective_dates(contract_in.valid_from, contract_in.valid_to)
 
     def _validate_effective_dates(self, valid_from: date, valid_to: date) -> None:
-        if valid_from > valid_to:
-            raise ContractValidationError("valid_from must not be later than valid_to")
-
-    def _validate_update_effective_dates(
-        self, valid_from: date, valid_to: date
-    ) -> None:
         if valid_from <= date.today():
             raise ContractValidationError("valid_from must be greater than current date")
 
-        if valid_to <= valid_from:
-            raise ContractValidationError("valid_to must be greater than valid_from")
+        if valid_to < valid_from:
+            raise ContractValidationError("valid_to must be on or after valid_from")
 
     def _hash_create_request(self, contract_in: ContractCreate) -> str:
         payload = contract_in.model_dump(mode="json")
@@ -249,7 +247,12 @@ class ContractService:
         return hashlib.sha256(canonical_payload.encode("utf-8")).hexdigest()
 
     def _validate_customer(self, customer_id: str) -> None:
-        customer = self.customer_client.get_customer(customer_id)
+        try:
+            customer = self.customer_client.get_customer(customer_id)
+        except CustomerClientError as exc:
+            raise CustomerServiceDependencyError(
+                "customer service is unavailable"
+            ) from exc
 
         if customer is None:
             raise CustomerNotFoundError("customer does not exist")
@@ -325,7 +328,12 @@ class ContractService:
         )
 
     def _resolve_customer_name(self, customer_id: str) -> str:
-        customer = self.customer_client.get_customer(customer_id)
+        try:
+            customer = self.customer_client.get_customer(customer_id)
+        except CustomerClientError as exc:
+            raise CustomerServiceDependencyError(
+                "customer service is unavailable"
+            ) from exc
         if customer is None:
             return "Unknown Customer"
         return customer.name
