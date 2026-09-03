@@ -1,5 +1,5 @@
 import React from "react";
-import { createBrowserRouter } from "react-router-dom";
+import { Navigate, createBrowserRouter } from "react-router-dom";
 
 import { ApprovalTasksPage } from "../features/approvals/pages/ApprovalTasksPage.jsx";
 import { CustomerListPage } from "../features/customers/pages/CustomerListPage.jsx";
@@ -10,7 +10,6 @@ import { ContractListPage } from "../features/contracts/pages/ContractListPage.j
 import { MODULE_ROLES } from "../features/identity/constants/permissions.js";
 import { IdentityLoginPage } from "../features/identity/pages/IdentityLoginPage.jsx";
 import { LoginPage } from "../features/identity/pages/LoginPage.jsx";
-import { NotificationListPage } from "../features/notifications/pages/NotificationListPage.jsx";
 import { PaymentListPage } from "../features/payments/pages/PaymentListPage.jsx";
 import { PriceListPage } from "../features/prices/pages/PriceListPage.jsx";
 import { ProductionPeriodListPage } from "../features/production/pages/ProductionPeriodListPage.jsx";
@@ -73,7 +72,7 @@ export const router = createBrowserRouter([
         path: "approvals",
         element: protectedElement(<ApprovalTasksPage />, MODULE_ROLES.approvals),
       },
-      { path: "notifications", element: <NotificationListPage /> },
+      { path: "notifications", element: <Navigate to="/" replace /> },
     ],
   },
 ]);

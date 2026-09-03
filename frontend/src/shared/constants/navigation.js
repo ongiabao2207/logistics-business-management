@@ -1,5 +1,4 @@
 import {
-  Bell,
   ClipboardCheck,
   CreditCard,
   Factory,
@@ -20,7 +19,6 @@ export const navigationItems = [
   { label: "Sản lượng", path: "/production", icon: Factory, roles: MODULE_ROLES.production },
   { label: "Thanh toán", path: "/payments", icon: CreditCard, roles: MODULE_ROLES.payments },
   { label: "Phê duyệt", path: "/approvals", icon: ClipboardCheck, roles: MODULE_ROLES.approvals },
-  { label: "Thông báo", path: "/notifications", icon: Bell },
 ];
 
 export const moduleSummaryItems = [
