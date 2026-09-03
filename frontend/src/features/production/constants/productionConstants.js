@@ -56,6 +56,12 @@ export const SAMPLE_CUSTOMERS = [
   },
 ];
 
+export const SEED_CONTRACTS = SAMPLE_CUSTOMERS.map((customer) => ({
+  ...customer.contract,
+  customer_id: customer.id,
+  customer_name: customer.name,
+}));
+
 export const SERVICE_CATALOG = [
   { code: "SRV-BX-20FT", name: "Dịch vụ Bốc xếp Container 20ft", unit: "Cont" },
   { code: "SRV-BX-40FT", name: "Dịch vụ Bốc xếp Container 40ft", unit: "Cont" },

@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import datetime, timezone
 from decimal import Decimal
+import re
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -29,7 +30,7 @@ class ProductionService:
         period = ProductionPeriod(
             customer_id=payload.customer_id,
             contract_id=payload.contract_id,
-            period_name=payload.period_name,
+            period_name=self._next_period_code(payload.contract_id),
             from_date=payload.from_date,
             to_date=payload.to_date,
             status=ProductionPeriodStatus.DRAFT.value,
@@ -104,6 +105,22 @@ class ProductionService:
         if contract.customer_id != customer_id:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Customer does not match the contract")
         return contract
+
+    def _next_period_code(self, contract_id: str) -> str:
+        match = re.search(r"20\d{2}", contract_id)
+        if match is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Contract ID must contain a four-digit year, for example HD-2024-TCB-082",
+            )
+        year = match.group(0)
+        sequence = sum(
+            1
+            for existing_contract_id in production_crud.list_contract_ids(self.db)
+            if re.search(r"20\d{2}", existing_contract_id)
+            and re.search(r"20\d{2}", existing_contract_id).group(0) == year
+        ) + 1
+        return f"SL-{year}-{sequence:03d}"
 
     @staticmethod
     def _validate_details(details, from_date, to_date, allowed_service_codes: set[str]) -> None:

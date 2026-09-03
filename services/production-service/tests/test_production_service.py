@@ -20,7 +20,7 @@ def service() -> ProductionService:
 
 def draft_payload(**overrides) -> ProductionPeriodCreate:
     data = {
-        "customer_id": "customer-demo", "contract_id": "contract-demo", "period_name": "October 2026",
+        "customer_id": "customer-demo", "contract_id": "HD-2026-DEMO-001",
         "from_date": date(2026, 10, 1), "to_date": date(2026, 10, 31),
         "details": [ProductionDetailInput(service_code="LOADING", recorded_date=date(2026, 10, 2), quantity="12", unit="CONTAINER")],
     }
@@ -31,7 +31,23 @@ def draft_payload(**overrides) -> ProductionPeriodCreate:
 def test_creates_draft_and_outbox_event(service: ProductionService) -> None:
     period = service.create_draft(draft_payload(), "operations-1")
     assert period.status == "DRAFT"
+    assert period.period_name == "SL-2026-001"
     assert len(period.details) == 1
+
+
+def test_period_codes_increment_within_the_contract_year(service: ProductionService) -> None:
+    first = service.create_draft(draft_payload(), "operations-1")
+    second = service.create_draft(
+        draft_payload(
+            from_date=date(2026, 2, 1),
+            to_date=date(2026, 2, 28),
+            details=[ProductionDetailInput(service_code="LOADING", recorded_date=date(2026, 2, 2), quantity="12", unit="CONTAINER")],
+        ),
+        "operations-1",
+    )
+
+    assert first.period_name == "SL-2026-001"
+    assert second.period_name == "SL-2026-002"
 
 
 def test_rejects_overlapping_period(service: ProductionService) -> None:

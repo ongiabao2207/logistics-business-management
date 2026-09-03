@@ -123,7 +123,7 @@ export function ProductionPeriodDetailModal({ isOpen, periodId, onClose, onRefre
             </div>
             {period && (
               <p>
-                Mã kỳ: <strong>SL-{period.id}</strong> | Khách hàng: <strong>{period.customer_name || period.customer_id}</strong> | Hợp đồng: <strong>{period.contract_id}</strong>
+                Mã kỳ: <strong>{period.period_name || `SL-${period.id}`}</strong> | Khách hàng: <strong>{period.customer_name || period.customer_id}</strong> | Hợp đồng: <strong>{period.contract_id}</strong>
               </p>
             )}
           </div>

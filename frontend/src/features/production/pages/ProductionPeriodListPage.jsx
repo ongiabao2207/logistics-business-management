@@ -194,8 +194,8 @@ export function ProductionPeriodListPage() {
                 return (
                   <tr key={period.id}>
                     <td>
-                      <strong style={{ color: "#0f766e", fontSize: "13.5px" }}>SL-{period.id}</strong>
-                      {period.period_name && (
+                      <strong style={{ color: "#0f766e", fontSize: "13.5px" }}>{period.period_name || `SL-${period.id}`}</strong>
+                      {period.period_name && !period.period_name.startsWith("SL-") && (
                         <span style={{ display: "block", fontSize: "11px", color: "#64748b" }}>
                           {period.period_name}
                         </span>

@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { X, Plus, Trash2, AlertTriangle, CheckCircle, Calendar, Building, FileText } from "lucide-react";
-import { SAMPLE_CUSTOMERS, SERVICE_CATALOG } from "../constants/productionConstants";
+import { SEED_CONTRACTS, SERVICE_CATALOG } from "../constants/productionConstants";
 import { productionApi } from "../api/productionApi";
 
 export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess }) {
-  const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [selectedContractId, setSelectedContractId] = useState("");
-  const [periodName, setPeriodName] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
@@ -23,19 +21,12 @@ export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [alertState, setAlertState] = useState(null); // { type: 'success' | 'invalid_date' | 'overlap', title, message }
 
-  const selectedCustomer = SAMPLE_CUSTOMERS.find((c) => c.id === selectedCustomerId);
-  const contract = selectedCustomer?.contract;
+  const contract = SEED_CONTRACTS.find((item) => item.id === selectedContractId);
 
-  // Auto set contract when customer changes
+  // The contract is the source of truth; its linked customer is displayed automatically.
   useEffect(() => {
-    if (selectedCustomer) {
-      setSelectedContractId(selectedCustomer.contract.id);
-      const currentMonth = new Date().toLocaleDateString("vi-VN", { month: "2-digit", year: "numeric" });
-      setPeriodName(`Sản lượng Tháng ${currentMonth}`);
-    } else {
-      setSelectedContractId("");
-    }
-  }, [selectedCustomerId]);
+    setAlertState(null);
+  }, [selectedContractId]);
 
   if (!isOpen) return null;
 
@@ -74,7 +65,7 @@ export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess }) {
     e.preventDefault();
     setAlertState(null);
 
-    if (!selectedCustomerId || !selectedContractId || !fromDate || !toDate) {
+    if (!contract || !fromDate || !toDate) {
       alert("Vui lòng điền đầy đủ các thông tin bắt buộc.");
       return;
     }
@@ -105,7 +96,7 @@ export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess }) {
     try {
       // Check overlap API
       const overlapRes = await productionApi.checkOverlap({
-        customer_id: selectedCustomerId,
+        customer_id: contract.customer_id,
         contract_id: selectedContractId,
         from_date: fromDate,
         to_date: toDate,
@@ -123,9 +114,8 @@ export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess }) {
 
       // Create Draft
       const payload = {
-        customer_id: selectedCustomerId,
+        customer_id: contract.customer_id,
         contract_id: selectedContractId,
-        period_name: periodName,
         from_date: fromDate,
         to_date: toDate,
         details: details.map((d) => ({
@@ -142,7 +132,7 @@ export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess }) {
       setAlertState({
         type: "success",
         title: "Lưu thành công!",
-        message: `Dữ liệu kỳ sản lượng (${created.period_name || created.id}) đã được ghi nhận vào hệ thống ở trạng thái Bản nháp (DRAFT). Bạn có thể xem lại hoặc chỉnh sửa sau này.`,
+        message: `Kỳ sản lượng ${created.period_name || created.id} đã được ghi nhận vào hệ thống ở trạng thái Bản nháp (DRAFT). Bạn có thể xem lại hoặc chỉnh sửa sau này.`,
         createdId: created.id,
       });
     } catch (err) {
@@ -227,19 +217,19 @@ export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess }) {
               <div className="form-grid">
                 <div className="form-group">
                   <label>
-                    <Building size={14} style={{ display: "inline", marginRight: "4px" }} />
-                    Khách hàng <span className="required">*</span>
+                    <FileText size={14} style={{ display: "inline", marginRight: "4px" }} />
+                    Hợp đồng áp dụng <span className="required">*</span>
                   </label>
                   <select
                     className="form-control"
-                    value={selectedCustomerId}
-                    onChange={(e) => setSelectedCustomerId(e.target.value)}
+                    value={selectedContractId}
+                    onChange={(e) => setSelectedContractId(e.target.value)}
                     required
                   >
-                    <option value="">-- Chọn khách hàng --</option>
-                    {SAMPLE_CUSTOMERS.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} ({c.id})
+                    <option value="">-- Chọn hợp đồng --</option>
+                    {SEED_CONTRACTS.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.id} — {item.name}
                       </option>
                     ))}
                   </select>
@@ -247,28 +237,28 @@ export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess }) {
 
                 <div className="form-group">
                   <label>
-                    <FileText size={14} style={{ display: "inline", marginRight: "4px" }} />
-                    Hợp đồng áp dụng <span className="required">*</span>
+                    <Building size={14} style={{ display: "inline", marginRight: "4px" }} />
+                    Khách hàng
                   </label>
                   <input
                     className="form-control"
                     type="text"
-                    value={contract ? `${contract.name} (${contract.id})` : ""}
-                    placeholder="Tự động chọn hợp đồng tương ứng"
+                    value={contract ? `${contract.customer_name} (${contract.customer_id})` : ""}
+                    placeholder="Tự động điền theo hợp đồng"
                     readOnly
                   />
                 </div>
 
                 <div className="form-group full-width">
-                  <label>Tên kỳ ghi nhận sản lượng <span className="required">*</span></label>
+                  <label>Mã kỳ sản lượng</label>
                   <input
                     className="form-control"
                     type="text"
-                    value={periodName}
-                    onChange={(e) => setPeriodName(e.target.value)}
-                    placeholder="VD: Sản lượng Tháng 10/2026"
-                    required
+                    value={contract ? `SL-${contract.id.match(/20\d{2}/)?.[0] || "YYYY"}-XXX` : ""}
+                    placeholder="Tự động tạo sau khi lưu"
+                    readOnly
                   />
+                  <small>Hệ thống tạo mã theo năm trong mã hợp đồng và số thứ tự kỳ cùng năm.</small>
                 </div>
 
                 <div className="form-group">

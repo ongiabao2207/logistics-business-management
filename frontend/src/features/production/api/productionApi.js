@@ -4,6 +4,13 @@ import { INITIAL_PERIODS, SAMPLE_CUSTOMERS } from "../constants/productionConsta
 // In-memory fallback state for smooth offline/standalone frontend execution
 let localPeriods = [...INITIAL_PERIODS];
 
+function createLocalPeriodCode(contractId) {
+  const year = contractId.match(/20\d{2}/)?.[0];
+  if (!year) throw new Error("Mã hợp đồng phải chứa năm theo định dạng HD-YYYY-...");
+  const sequence = localPeriods.filter((period) => period.contract_id.match(/20\d{2}/)?.[0] === year).length + 1;
+  return `SL-${year}-${String(sequence).padStart(3, "0")}`;
+}
+
 export const productionApi = {
   async listProductionPeriods(params = {}) {
     try {
@@ -84,7 +91,7 @@ export const productionApi = {
         customer_id: payload.customer_id,
         customer_name: customer ? customer.name : payload.customer_id,
         contract_id: payload.contract_id,
-        period_name: payload.period_name,
+        period_name: createLocalPeriodCode(payload.contract_id),
         from_date: payload.from_date,
         to_date: payload.to_date,
         status: "DRAFT",

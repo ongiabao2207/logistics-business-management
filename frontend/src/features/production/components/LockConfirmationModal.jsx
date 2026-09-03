@@ -46,7 +46,7 @@ export function LockConfirmationModal({ isOpen, period, onClose, onSuccess }) {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", fontSize: "13px" }}>
               <div>
                 <span style={{ color: "#64748b", display: "block" }}>MÃ KỲ SẢN LƯỢNG</span>
-                <strong style={{ color: "#0f172a" }}>SL-{period.id}</strong>
+                <strong style={{ color: "#0f172a" }}>{period.period_name || `SL-${period.id}`}</strong>
               </div>
               <div>
                 <span style={{ color: "#64748b", display: "block" }}>TRẠNG THÁI HIỆN TẠI</span>

@@ -36,6 +36,10 @@ def create_period(db: Session, period: ProductionPeriod) -> ProductionPeriod:
     return period
 
 
+def list_contract_ids(db: Session) -> list[str]:
+    return list(db.scalars(select(ProductionPeriod.contract_id)))
+
+
 def replace_details(period: ProductionPeriod, details: list[ProductionDetail]) -> None:
     period.details.clear()
     period.details.extend(details)

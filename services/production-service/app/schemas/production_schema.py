@@ -22,7 +22,7 @@ class ProductionDetailResponse(ProductionDetailInput):
 class ProductionPeriodCreate(BaseModel):
     customer_id: str = Field(min_length=1, max_length=64)
     contract_id: str = Field(min_length=1, max_length=64)
-    period_name: str = Field(min_length=1, max_length=255)
+    period_name: str | None = Field(default=None, max_length=255)
     from_date: date
     to_date: date
     details: list[ProductionDetailInput] = Field(min_length=1)

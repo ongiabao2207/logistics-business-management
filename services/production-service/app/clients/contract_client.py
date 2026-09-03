@@ -40,7 +40,14 @@ class FakeContractClient:
     def validate_production_period(self, contract_id: str, from_date: date, to_date: date) -> ContractValidation:
         if contract_id == "invalid-contract":
             raise ValueError("Contract is not valid for the requested production period")
+        seed_customers = {
+            "HD-2024-TCB-082": "KH-TCB-001",
+            "CONT-2023-GT-01": "KH-GTECH-002",
+            "HD-VIG-2024-012": "KH-VIG-003",
+            "HD-2023-VOS-001": "KH-VOS-004",
+            "HD-SHO-2024-LGT": "KH-SHO-005",
+        }
         return ContractValidation(
-            customer_id="customer-demo",
-            allowed_service_codes={"LOADING", "STORAGE", "TRANSPORT"},
+            customer_id=seed_customers.get(contract_id, "customer-demo"),
+            allowed_service_codes={"LOADING", "STORAGE", "TRANSPORT", "SRV-BX-20FT", "SRV-BX-40FT", "SRV-STORAGE", "SRV-TRANSPORT", "SRV-COUNT", "SRV-LIFT"},
         )
