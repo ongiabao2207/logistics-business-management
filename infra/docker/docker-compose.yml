@@ -29,6 +29,25 @@ services:
     networks:
       - gateway
 
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "127.0.0.1:${RABBITMQ_PORT:-5672}:5672"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - gateway
+
   identity-db:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -264,7 +283,11 @@ services:
     restart: unless-stopped
     environment:
       PAYMENT_DATABASE_URL: postgresql+psycopg://${PAYMENT_DB_USER:-payment_user}:${PAYMENT_DB_PASSWORD:-payment_password}@payment-db:5432/${PAYMENT_DB_NAME:-payment_db}
-      PAYMENT_USE_FAKE_CLIENTS: "true"
+      PAYMENT_USE_FAKE_CLIENTS: "false"
+      PAYMENT_CONTRACT_SERVICE_URL: http://contract-service:8000/api/v1
+      PAYMENT_PRODUCTION_SERVICE_URL: http://production-service:8000/api/v1
+      PAYMENT_PRICE_SERVICE_URL: http://price-service:8001/api/v1
+      PAYMENT_UPSTREAM_TIMEOUT_SECONDS: "5"
       PAYMENT_IDENTITY_JWKS_URL: http://identity-service:8000/.well-known/jwks.json
       PAYMENT_JWT_ISSUER: identity-service
       PAYMENT_JWT_AUDIENCE: logistics-api
@@ -276,6 +299,12 @@ services:
       payment-db:
         condition: service_healthy
       identity-service:
+        condition: service_started
+      contract-service:
+        condition: service_started
+      production-service:
+        condition: service_started
+      price-service:
         condition: service_started
       rabbitmq:
         condition: service_started
@@ -296,6 +325,7 @@ volumes:
   production-db-data:
   payment-db-data:
   redis-data:
+  rabbitmq-data:
 
 networks:
   gateway:

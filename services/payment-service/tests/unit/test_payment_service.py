@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.api.dependencies import get_payment_service
+from app.api.dependencies import build_payment_service
 from app.clients.production import ProductionRecord
 from app.models.payment_model import PaymentNumberSequence, PaymentStatus
 from app.schemas.payment_schema import (
@@ -28,7 +28,7 @@ def request(
 
 
 def test_preview_calculates_amounts_and_price_snapshot():
-    service = get_payment_service()
+    service = build_payment_service()
 
     preview = service.preview(
         request()
@@ -64,7 +64,7 @@ def test_preview_calculates_amounts_and_price_snapshot():
 def test_create_rejects_duplicate_contract_period(
     db_session,
 ):
-    service = get_payment_service()
+    service = build_payment_service()
 
     payment_request = PaymentCreate(
         **request().model_dump()
@@ -90,7 +90,7 @@ def test_create_rejects_duplicate_contract_period(
 
 
 def test_payment_ids_use_yearly_three_digit_sequence(db_session):
-    service = get_payment_service()
+    service = build_payment_service()
 
     first = service.create(
         db_session,
@@ -115,7 +115,7 @@ def test_payment_ids_use_yearly_three_digit_sequence(db_session):
 
 
 def test_payment_id_rejects_more_than_999_per_year(db_session):
-    service = get_payment_service()
+    service = build_payment_service()
     db_session.add(PaymentNumberSequence(year=2026, last_number=999))
     db_session.commit()
 
@@ -153,7 +153,7 @@ def test_preview_rejects_invalid_dependencies(
     contract_id,
     message,
 ):
-    service = get_payment_service()
+    service = build_payment_service()
 
     with pytest.raises(
         PaymentError,
@@ -167,7 +167,7 @@ def test_preview_rejects_invalid_dependencies(
 def test_create_snapshots_price_and_submit_starts_direct_review(
     db_session,
 ):
-    service = get_payment_service()
+    service = build_payment_service()
 
     payment = service.create(
         db_session,
@@ -197,7 +197,7 @@ def test_create_snapshots_price_and_submit_starts_direct_review(
 def test_submit_is_idempotency_guarded(
     db_session,
 ):
-    service = get_payment_service()
+    service = build_payment_service()
 
     payment = service.create(
         db_session,
@@ -226,7 +226,7 @@ def test_submit_is_idempotency_guarded(
 def test_approved_payment_cannot_be_recalculated(
     db_session,
 ):
-    service = get_payment_service()
+    service = build_payment_service()
 
     payment = service.create(
         db_session,
@@ -254,7 +254,7 @@ def test_approved_payment_cannot_be_recalculated(
 def test_update_draft_recalculates_lines_and_tax(
     db_session,
 ):
-    service = get_payment_service()
+    service = build_payment_service()
     payment = service.create(
         db_session,
         PaymentCreate(**request().model_dump()),
@@ -290,7 +290,7 @@ def test_update_draft_recalculates_lines_and_tax(
 def test_submitted_payment_cannot_be_updated(
     db_session,
 ):
-    service = get_payment_service()
+    service = build_payment_service()
     payment = service.create(
         db_session,
         PaymentCreate(**request().model_dump()),
@@ -316,7 +316,7 @@ def test_submitted_payment_cannot_be_updated(
 def test_draft_update_can_add_and_remove_confirmed_service_lines(
     db_session,
 ):
-    service = get_payment_service()
+    service = build_payment_service()
     payment = service.create(
         db_session,
         PaymentCreate(**request().model_dump()),
@@ -378,7 +378,7 @@ def test_draft_update_can_add_and_remove_confirmed_service_lines(
 def test_revision_requested_payment_requires_adjustment_api(
     db_session,
 ):
-    service = get_payment_service()
+    service = build_payment_service()
     payment = service.create(
         db_session,
         PaymentCreate(**request().model_dump()),

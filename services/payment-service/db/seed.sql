@@ -4,7 +4,7 @@
 BEGIN;
 
 INSERT INTO payment_number_sequences (year, last_number)
-VALUES (2026, 6)
+VALUES (2026, 112)
 ON CONFLICT (year) DO UPDATE
 SET last_number = GREATEST(payment_number_sequences.last_number, EXCLUDED.last_number);
 
@@ -115,6 +115,64 @@ JOIN payments p
   ON p.contract_id = s.contract_id
  AND p.period_start = s.period_start
  AND p.period_end = s.period_end;
+
+-- Thêm dữ liệu lịch sử để kiểm thử tìm kiếm, lọc và phân trang danh sách.
+INSERT INTO payments (
+    id, customer_id, contract_id, period_start, period_end,
+    subtotal, tax_amount, total_amount, status,
+    approval_instance_id, created_at, updated_at
+)
+VALUES
+    ('TT-2026-101', 'KH0001', 'HD2026001', DATE '2026-01-01', DATE '2026-01-31',  7000000,  700000,  7700000, 'SIGNED', 'approval-2026-101', TIMESTAMPTZ '2026-01-31 08:00:00+07', TIMESTAMPTZ '2026-02-02 08:00:00+07'),
+    ('TT-2026-102', 'KH0002', 'HD2026002', DATE '2026-01-01', DATE '2026-01-31',  8250000,  825000,  9075000, 'APPROVED', 'approval-2026-102', TIMESTAMPTZ '2026-01-31 09:00:00+07', TIMESTAMPTZ '2026-02-01 09:00:00+07'),
+    ('TT-2026-103', 'KH0005', 'HD2026003', DATE '2026-01-01', DATE '2026-01-31', 12000000, 1200000, 13200000, 'SIGNED', 'approval-2026-103', TIMESTAMPTZ '2026-01-31 10:00:00+07', TIMESTAMPTZ '2026-02-02 10:00:00+07'),
+    ('TT-2026-104', 'KH0001', 'HD2026001', DATE '2026-02-01', DATE '2026-02-28', 10500000, 1050000, 11550000, 'PENDING_APPROVAL', 'approval-2026-104', TIMESTAMPTZ '2026-02-28 08:00:00+07', TIMESTAMPTZ '2026-02-28 08:30:00+07'),
+    ('TT-2026-105', 'KH0002', 'HD2026002', DATE '2026-02-01', DATE '2026-02-28', 11000000, 1100000, 12100000, 'DRAFT', NULL, TIMESTAMPTZ '2026-02-28 09:00:00+07', TIMESTAMPTZ '2026-02-28 09:00:00+07'),
+    ('TT-2026-106', 'KH0005', 'HD2026003', DATE '2026-02-01', DATE '2026-02-28', 14400000, 1440000, 15840000, 'REVISION_REQUESTED', 'approval-2026-106', TIMESTAMPTZ '2026-02-28 10:00:00+07', TIMESTAMPTZ '2026-03-01 10:00:00+07'),
+    ('TT-2026-107', 'KH0001', 'HD2026001', DATE '2026-03-01', DATE '2026-03-31', 14000000, 1400000, 15400000, 'APPROVED', 'approval-2026-107', TIMESTAMPTZ '2026-03-31 08:00:00+07', TIMESTAMPTZ '2026-04-01 08:00:00+07'),
+    ('TT-2026-108', 'KH0002', 'HD2026002', DATE '2026-03-01', DATE '2026-03-31', 13750000, 1375000, 15125000, 'REJECTED', 'approval-2026-108', TIMESTAMPTZ '2026-03-31 09:00:00+07', TIMESTAMPTZ '2026-04-01 09:00:00+07'),
+    ('TT-2026-109', 'KH0005', 'HD2026003', DATE '2026-03-01', DATE '2026-03-31', 18000000, 1800000, 19800000, 'SIGNED', 'approval-2026-109', TIMESTAMPTZ '2026-03-31 10:00:00+07', TIMESTAMPTZ '2026-04-02 10:00:00+07'),
+    ('TT-2026-110', 'KH0001', 'HD2026001', DATE '2026-04-01', DATE '2026-04-30', 17500000, 1750000, 19250000, 'DRAFT', NULL, TIMESTAMPTZ '2026-04-30 08:00:00+07', TIMESTAMPTZ '2026-04-30 08:00:00+07'),
+    ('TT-2026-111', 'KH0002', 'HD2026002', DATE '2026-04-01', DATE '2026-04-30', 16500000, 1650000, 18150000, 'PENDING_APPROVAL', 'approval-2026-111', TIMESTAMPTZ '2026-04-30 09:00:00+07', TIMESTAMPTZ '2026-04-30 09:30:00+07'),
+    ('TT-2026-112', 'KH0005', 'HD2026003', DATE '2026-04-01', DATE '2026-04-30', 24000000, 2400000, 26400000, 'APPROVED', 'approval-2026-112', TIMESTAMPTZ '2026-04-30 10:00:00+07', TIMESTAMPTZ '2026-05-01 10:00:00+07')
+ON CONFLICT (contract_id, period_start, period_end) DO UPDATE
+SET customer_id = EXCLUDED.customer_id,
+    subtotal = EXCLUDED.subtotal,
+    tax_amount = EXCLUDED.tax_amount,
+    total_amount = EXCLUDED.total_amount,
+    status = EXCLUDED.status,
+    approval_instance_id = EXCLUDED.approval_instance_id,
+    created_at = EXCLUDED.created_at,
+    updated_at = EXCLUDED.updated_at;
+
+DELETE FROM payment_lines WHERE payment_id IN (
+    'TT-2026-101', 'TT-2026-102', 'TT-2026-103', 'TT-2026-104',
+    'TT-2026-105', 'TT-2026-106', 'TT-2026-107', 'TT-2026-108',
+    'TT-2026-109', 'TT-2026-110', 'TT-2026-111', 'TT-2026-112'
+);
+
+INSERT INTO payment_lines (
+    id, payment_id, service_id, description, confirmed_quantity,
+    billing_quantity, unit_price_snapshot, line_amount, tax_rate, tax_amount
+)
+SELECT md5(p.id || ':history-line'), p.id, seed.service_id, seed.description,
+       seed.quantity, seed.quantity, seed.unit_price, p.subtotal, 0.1000, p.tax_amount
+FROM payments p
+JOIN (VALUES
+    ('TT-2026-101', 'DV001', 'Bốc xếp Container 20ft', 20.0000, 350000.00),
+    ('TT-2026-102', 'DV002', 'Bốc xếp Container 40ft', 15.0000, 550000.00),
+    ('TT-2026-103', 'DV003', 'Lưu kho', 100.0000, 120000.00),
+    ('TT-2026-104', 'DV001', 'Bốc xếp Container 20ft', 30.0000, 350000.00),
+    ('TT-2026-105', 'DV002', 'Bốc xếp Container 40ft', 20.0000, 550000.00),
+    ('TT-2026-106', 'DV003', 'Lưu kho', 120.0000, 120000.00),
+    ('TT-2026-107', 'DV001', 'Bốc xếp Container 20ft', 40.0000, 350000.00),
+    ('TT-2026-108', 'DV002', 'Bốc xếp Container 40ft', 25.0000, 550000.00),
+    ('TT-2026-109', 'DV003', 'Lưu kho', 150.0000, 120000.00),
+    ('TT-2026-110', 'DV001', 'Bốc xếp Container 20ft', 50.0000, 350000.00),
+    ('TT-2026-111', 'DV002', 'Bốc xếp Container 40ft', 30.0000, 550000.00),
+    ('TT-2026-112', 'DV003', 'Lưu kho', 200.0000, 120000.00)
+) AS seed(payment_id, service_id, description, quantity, unit_price)
+  ON seed.payment_id = p.id;
 
 -- Một lịch sử minh họa cho hồ sơ đang được yêu cầu điều chỉnh.
 INSERT INTO payment_adjustments (

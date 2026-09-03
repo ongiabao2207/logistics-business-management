@@ -10,11 +10,11 @@ import { usePaymentContracts } from "../hooks/usePaymentContracts.js";
 import { useCreateAdjustment, usePayment, useUpdatePayment } from "../hooks/usePayments.js";
 
 export function PaymentEditPage({ adjustment = false }) {
-  const { paymentId } = useParams(); const navigate = useNavigate(); const { data: payment, isPending, error } = usePayment(paymentId); const update = useUpdatePayment(); const adjust = useCreateAdjustment(); const [values, setValues] = useState({}); const [reason, setReason] = useState(""); const [revisionId, setRevisionId] = useState("");
+  const { paymentId } = useParams(); const navigate = useNavigate(); const { data: payment, isPending, error } = usePayment(paymentId); const update = useUpdatePayment(); const adjust = useCreateAdjustment(); const [values, setValues] = useState({}); const [reason, setReason] = useState(""); const [revisionId, setRevisionId] = useState(() => `mock-revision-${paymentId}`);
   const { getCustomerName } = usePaymentContracts();
   useEffect(() => { if (payment) setValues(Object.fromEntries(payment.lines.map((line) => [line.service_id, line.billing_quantity]))); }, [payment]);
   if (isPending) return <PaymentState title="Đang tải dữ liệu..." />; if (error) return <PaymentState title="Không thể tải dữ liệu" description={error.message} />;
-  const expected = adjustment ? "REVISION_REQUESTED" : "DRAFT"; if (payment.status !== expected) return <PaymentState title="Không thể chỉnh sửa" description={`Bảng đang ở trạng thái ${payment.status}.`} />;
+  const editableStatuses = adjustment ? ["REVISION_REQUESTED", "REJECTED"] : ["DRAFT"]; if (!editableStatuses.includes(payment.status)) return <PaymentState title="Không thể chỉnh sửa" description={`Bảng đang ở trạng thái ${payment.status}.`} />;
   const customerName = getCustomerName(payment.contract_id, payment.customer_id);
   const lines = payment.lines.map((line) => ({ service_id: line.service_id, billing_quantity: Number(values[line.service_id]) })); const mutation = adjustment ? adjust : update;
   const save = (event) => { event.preventDefault(); const payload = adjustment ? { revision_request_id: revisionId, adjustment_note: reason, lines } : { reason, lines }; mutation.mutate({ id: paymentId, payload }, { onSuccess: () => navigate(`/payments/${paymentId}`) }); };

@@ -51,3 +51,13 @@ button, input, select, textarea { font:inherit; }
 .approval-grid { grid-template-columns:minmax(0,1fr) 300px }.pay-lines th:nth-child(1) { width:27% }.pay-lines th:nth-child(2) { width:11% }.pay-lines th:nth-child(5) { width:13% }
 @media(max-width:1100px){.pay-filter-card{grid-template-columns:1fr 1fr}.pay-filter-card .search{grid-column:1/-1}.pay-summary-grid,.pay-metric-grid{grid-template-columns:1fr 1fr}.approval-grid,.draft-edit-grid{grid-template-columns:1fr}.revision-grid{grid-template-columns:1fr}.revision-total,.revision-history{grid-column:auto}}
 @media(max-width:760px){.pay-shell{grid-template-columns:1fr}.pay-sidebar{position:static;height:auto}.pay-sidebar nav{grid-template-columns:1fr 1fr}.pay-quick-create,.pay-sidebar-footer{display:none}.pay-topbar>strong,.pay-topbar>label{display:none}.pay-page{padding:16px}.pay-filter-card,.pay-search-fields,.pay-tip-grid,.pay-period-grid,.pay-info-cards,.approval-subgrid,.pay-summary-grid,.pay-metric-grid{grid-template-columns:1fr}.pay-page-heading,.pay-customer-heading,.pay-search-footer,.pay-bottom-bar{align-items:stretch;flex-direction:column}.pay-page-heading>div:last-child,.pay-customer-heading>div:last-child{flex-wrap:wrap}.pay-bottom-bar{margin:20px -16px -16px}.pay-bottom-bar>div{display:grid}.pay-batch-bar{margin-top:80px}.request-meta{grid-template-columns:1fr}.draft-common>div{grid-template-columns:1fr}}
+.revision-total > label:last-of-type {
+  display: none;
+}
+.pay-spin {
+  animation: pay-spin 0.8s linear infinite;
+}
+
+@keyframes pay-spin {
+  to { transform: rotate(360deg); }
+}

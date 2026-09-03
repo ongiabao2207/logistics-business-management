@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -43,10 +44,13 @@ def list_payments(
     _user: Annotated[CurrentUser, Depends(require_roles("ROLE_ACCOUNTANT", "ROLE_DIRECTOR", "ROLE_LEGAL"))],
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
+    contract_id: str | None = Query(default=None),
+    period_start: date | None = Query(default=None),
+    period_end: date | None = Query(default=None),
     db: Session = Depends(get_db),
     service: PaymentService = Depends(get_payment_service),
 ):
-    return service.list(db, offset, limit)
+    return service.list(db, offset, limit, contract_id, period_start, period_end)
 
 
 @router.get("/{payment_id}", response_model=PaymentResponse)

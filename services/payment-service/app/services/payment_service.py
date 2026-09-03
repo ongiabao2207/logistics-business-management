@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy.orm import Session
@@ -59,6 +60,8 @@ class PaymentService:
                 contract_id=request.contract_id,
                 customer_id=request.customer_id,
             )
+        except ConnectionError as exc:
+            raise PaymentError(str(exc), 503) from exc
         except LookupError as exc:
             raise PaymentError(
                 str(exc),
@@ -77,11 +80,14 @@ class PaymentService:
                 422,
             )
 
-        records = self.production.get_eligible_records(
-            contract_id=request.contract_id,
-            period_start=request.period_start,
-            period_end=request.period_end,
-        )
+        try:
+            records = self.production.get_eligible_records(
+                contract_id=request.contract_id,
+                period_start=request.period_start,
+                period_end=request.period_end,
+            )
+        except ConnectionError as exc:
+            raise PaymentError(str(exc), 503) from exc
 
         if not records:
             raise PaymentError(
@@ -126,6 +132,8 @@ class PaymentService:
                     service_id=record.service_id,
                     business_date=request.period_end,
                 )
+            except ConnectionError as exc:
+                raise PaymentError(str(exc), 503) from exc
             except LookupError as exc:
                 raise PaymentError(
                     str(exc),
@@ -223,7 +231,78 @@ class PaymentService:
                 409,
             )
 
-        preview = self.preview(request)
+        preview = self.preview(
+            PaymentPeriodRequest(**request.model_dump(exclude={"lines"}))
+        )
+
+        if request.lines is not None:
+            requested_quantities = {
+                line.service_id: line.billing_quantity
+                for line in request.lines
+            }
+            available_ids = {line.service_id for line in preview.lines}
+            unknown_ids = requested_quantities.keys() - available_ids
+            if unknown_ids:
+                raise PaymentError(
+                    f"Services have no confirmed production data: {', '.join(sorted(unknown_ids))}",
+                    422,
+                )
+
+            adjusted_lines: list[PaymentLinePreview] = []
+            for line in preview.lines:
+                if line.service_id not in requested_quantities:
+                    continue
+                billing_quantity = requested_quantities.get(
+                    line.service_id,
+                    line.billing_quantity,
+                )
+                if billing_quantity > line.confirmed_quantity:
+                    raise PaymentError(
+                        f"Sản lượng thanh toán của {line.description} không được lớn hơn sản lượng xác nhận",
+                        422,
+                    )
+                line_amount = (billing_quantity * line.unit_price_snapshot).quantize(
+                    MONEY,
+                    rounding=ROUND_HALF_UP,
+                )
+                tax_amount = (line_amount * line.tax_rate).quantize(
+                    MONEY,
+                    rounding=ROUND_HALF_UP,
+                )
+                adjusted_lines.append(
+                    PaymentLinePreview(
+                        **line.model_dump(
+                            exclude={"billing_quantity", "line_amount", "tax_amount"}
+                        ),
+                        billing_quantity=billing_quantity,
+                        line_amount=line_amount,
+                        tax_amount=tax_amount,
+                    )
+                )
+
+            if not adjusted_lines:
+                raise PaymentError("Bảng thanh toán phải có ít nhất một hạng mục", 422)
+
+            subtotal = sum(
+                (line.line_amount for line in adjusted_lines),
+                Decimal("0"),
+            ).quantize(MONEY, rounding=ROUND_HALF_UP)
+            tax_amount = sum(
+                (line.tax_amount for line in adjusted_lines),
+                Decimal("0"),
+            ).quantize(MONEY, rounding=ROUND_HALF_UP)
+            preview = PaymentPreviewResponse(
+                **preview.model_dump(
+                    exclude={"lines", "subtotal", "tax_amount", "total_amount"}
+                ),
+                lines=adjusted_lines,
+                subtotal=subtotal,
+                tax_amount=tax_amount,
+                total_amount=(subtotal + tax_amount).quantize(
+                    MONEY,
+                    rounding=ROUND_HALF_UP,
+                ),
+            )
 
         try:
             payment = self.crud.create(
@@ -273,11 +352,17 @@ class PaymentService:
         db: Session,
         offset: int,
         limit: int,
+        contract_id: str | None = None,
+        period_start: date | None = None,
+        period_end: date | None = None,
     ) -> list[Payment]:
         return self.crud.list(
             db=db,
             offset=offset,
             limit=limit,
+            contract_id=contract_id,
+            period_start=period_start,
+            period_end=period_end,
         )
 
     def recalculate(
@@ -377,11 +462,14 @@ class PaymentService:
                 continue
 
             if production_records is None:
-                production_records = self.production.get_eligible_records(
-                    contract_id=payment.contract_id,
-                    period_start=payment.period_start,
-                    period_end=payment.period_end,
-                )
+                try:
+                    production_records = self.production.get_eligible_records(
+                        contract_id=payment.contract_id,
+                        period_start=payment.period_start,
+                        period_end=payment.period_end,
+                    )
+                except ConnectionError as exc:
+                    raise PaymentError(str(exc), 503) from exc
             record = next(
                 (
                     item
@@ -403,6 +491,8 @@ class PaymentService:
                     service_id=service_id,
                     business_date=payment.period_end,
                 )
+            except ConnectionError as exc:
+                raise PaymentError(str(exc), 503) from exc
             except LookupError as exc:
                 raise PaymentError(str(exc), 422) from exc
 

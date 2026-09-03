@@ -10,7 +10,7 @@ import {
   Send,
   WalletCards,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { usePageTitle } from "../../../shared/hooks/usePageTitle.js";
@@ -30,6 +30,8 @@ export function PaymentListPage() {
 
   const [params, setParams] = useSearchParams();
   const [keyword, setKeyword] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 5;
 
   const status = params.get("status") ?? "";
   const year = params.get("year") ?? "";
@@ -70,6 +72,15 @@ export function PaymentListPage() {
       return matchesStatus && matchesYear && matchesMonth && matchesKeyword;
     });
   }, [payments, keyword, year, month, status, getCustomerName]);
+
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const firstRow = (currentPage - 1) * pageSize;
+  const paginatedRows = rows.slice(firstRow, firstRow + pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [keyword, year, month, status]);
 
   function setStatus(value) {
     const nextParams = new URLSearchParams(params);
@@ -262,7 +273,7 @@ export function PaymentListPage() {
               </thead>
 
               <tbody>
-                {rows.map((item) => (
+                {paginatedRows.map((item) => (
                   <tr key={item.id}>
                     <td>
                       <Link
@@ -342,18 +353,16 @@ export function PaymentListPage() {
 
           <footer>
             <span>
-              Hiển thị 1 – {rows.length} của {rows.length} bảng
+              Hiển thị {firstRow + 1} – {Math.min(firstRow + pageSize, rows.length)} của {rows.length} bảng
               thanh toán
             </span>
 
             <div>
-              <button type="button">‹</button>
-              <button className="active" type="button">
-                1
-              </button>
-              <button type="button">2</button>
-              <button type="button">3</button>
-              <button type="button">›</button>
+              <button type="button" disabled={currentPage === 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>‹</button>
+              {Array.from({ length: pageCount }, (_, index) => index + 1).map((pageNumber) => (
+                <button className={pageNumber === currentPage ? "active" : ""} type="button" key={pageNumber} onClick={() => setPage(pageNumber)}>{pageNumber}</button>
+              ))}
+              <button type="button" disabled={currentPage === pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))}>›</button>
             </div>
           </footer>
         </section>

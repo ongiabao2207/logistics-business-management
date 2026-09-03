@@ -53,8 +53,23 @@ class PaymentPreviewResponse(PaymentPeriodRequest):
     total_amount: Decimal
 
 
+class PaymentCreateLine(ApiModel):
+    model_config = ConfigDict(extra="forbid")
+
+    service_id: str = Field(min_length=1, max_length=100)
+    billing_quantity: Decimal = Field(gt=0)
+
+
 class PaymentCreate(PaymentPeriodRequest):
-    pass
+    lines: list[PaymentCreateLine] | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def validate_unique_lines(self):
+        if self.lines is not None:
+            service_ids = [line.service_id for line in self.lines]
+            if len(service_ids) != len(set(service_ids)):
+                raise ValueError("Payment lines must have unique service_id values")
+        return self
 
 
 class PaymentLineUpdate(ApiModel):
