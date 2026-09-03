@@ -40,7 +40,7 @@ def create_draft(payload: ProductionPeriodCreate, current_user: Annotated[Curren
 
 
 @router.get("", response_model=list[ProductionPeriodResponse])
-def list_production_periods(_user: Annotated[CurrentUser, Depends(require_roles("ROLE_OPERATION", "ROLE_LEGAL", "ROLE_DIRECTOR"))], customer_id: str | None = Query(default=None), contract_id: str | None = Query(default=None), service: ProductionService = Depends(get_production_service)) -> list[ProductionPeriodResponse]:
+def list_production_periods(_user: Annotated[CurrentUser, Depends(require_roles("ROLE_OPERATION", "ROLE_LEGAL", "ROLE_DIRECTOR", "ROLE_ACCOUNTANT"))], customer_id: str | None = Query(default=None), contract_id: str | None = Query(default=None), service: ProductionService = Depends(get_production_service)) -> list[ProductionPeriodResponse]:
     return service.list_periods(customer_id, contract_id)
 
 
