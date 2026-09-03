@@ -133,4 +133,12 @@ class ProductionService:
 
     @staticmethod
     def _event_payload(period: ProductionPeriod, actor_id: str, status_before: str | None, status_after: str) -> dict:
-        return {"actor_id": actor_id, "period_id": period.id, "customer_id": period.customer_id, "contract_id": period.contract_id, "status_before": status_before, "status_after": status_after}
+        return {
+            "actor_id": actor_id,
+            "period_id": period.id,
+            "customer_id": period.customer_id,
+            "contract_id": period.contract_id,
+            "status_before": status_before,
+            "status_after": status_after,
+            "recipient_role": "ROLE_ACCOUNTANT" if status_after == ProductionPeriodStatus.LOCKED.value else None,
+        }

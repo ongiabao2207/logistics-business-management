@@ -4,7 +4,9 @@ from fastapi import status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.crud import price_crud
+from app.messaging.producer import EventPublisher, NoOpEventPublisher, RabbitMQEventPublisher
 from app.models.price_model import PriceList, Service
 from app.schemas.price_schema import (
     EffectiveServicePriceResponse,
@@ -164,7 +166,16 @@ def delete_price_list(db: Session, price_list_id: str) -> None:
     _commit(db)
 
 
-def submit_price_list(db: Session, price_list_id: str) -> PriceList:
+def _get_event_publisher(events: EventPublisher | None = None) -> EventPublisher:
+    if events is not None:
+        return events
+    settings = get_settings()
+    if settings.rabbitmq_enabled:
+        return RabbitMQEventPublisher(settings.rabbitmq_url, settings.rabbitmq_enabled)
+    return NoOpEventPublisher()
+
+
+def submit_price_list(db: Session, price_list_id: str, events: EventPublisher | None = None) -> PriceList:
     entity = get_price_list(db, price_list_id)
     if entity.status != PriceListStatus.DRAFT:
         raise PriceServiceError(
@@ -176,6 +187,17 @@ def submit_price_list(db: Session, price_list_id: str) -> PriceList:
         )
     entity.status = PriceListStatus.SUBMITTED.value
     _commit(db)
+    _get_event_publisher(events).publish(
+        "PRICE_LIST_SUBMITTED",
+        {
+            "price_list_id": price_list_id,
+            "recipient_role": "ROLE_DIRECTOR",
+            "title": "Bảng giá mới chờ phê duyệt",
+            "content": f"Bảng giá {price_list_id} đã được gửi để phê duyệt.",
+            "reference_type": "PRICE_LIST",
+            "reference_id": price_list_id,
+        },
+    )
     return get_price_list(db, entity.id)
 
 
@@ -210,7 +232,7 @@ def _synchronize_price_list_statuses(db: Session) -> None:
         _commit(db)
 
 
-def approve_price_list(db: Session, price_list_id: str) -> PriceList:
+def approve_price_list(db: Session, price_list_id: str, events: EventPublisher | None = None) -> PriceList:
     entity = get_price_list(db, price_list_id)
     if entity.status != PriceListStatus.SUBMITTED:
         raise PriceServiceError(
@@ -230,10 +252,21 @@ def approve_price_list(db: Session, price_list_id: str) -> PriceList:
         )
         entity.status = PriceListStatus.EFFECTIVE.value
     _commit(db)
+    _get_event_publisher(events).publish(
+        "PRICE_LIST_APPROVED",
+        {
+            "price_list_id": price_list_id,
+            "recipient_role": "ROLE_SALE",
+            "title": "Bảng giá đã được phê duyệt",
+            "content": f"Bảng giá {price_list_id} đã được phê duyệt.",
+            "reference_type": "PRICE_LIST",
+            "reference_id": price_list_id,
+        },
+    )
     return get_price_list(db, entity.id)
 
 
-def reject_price_list(db: Session, price_list_id: str) -> PriceList:
+def reject_price_list(db: Session, price_list_id: str, events: EventPublisher | None = None) -> PriceList:
     entity = get_price_list(db, price_list_id)
     if entity.status != PriceListStatus.SUBMITTED:
         raise PriceServiceError(
@@ -241,6 +274,17 @@ def reject_price_list(db: Session, price_list_id: str) -> PriceList:
         )
     entity.status = PriceListStatus.REJECTED.value
     _commit(db)
+    _get_event_publisher(events).publish(
+        "PRICE_LIST_REJECTED",
+        {
+            "price_list_id": price_list_id,
+            "recipient_role": "ROLE_SALE",
+            "title": "Bảng giá bị từ chối",
+            "content": f"Bảng giá {price_list_id} đã bị từ chối.",
+            "reference_type": "PRICE_LIST",
+            "reference_id": price_list_id,
+        },
+    )
     return get_price_list(db, entity.id)
 
 

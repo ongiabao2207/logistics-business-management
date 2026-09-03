@@ -13,6 +13,7 @@ from app.crud.contract_crud import (
     contract_crud,
 )
 from app.models.contract_model import Contract
+from app.messaging.producer import EventPublisher, NoOpEventPublisher
 from app.schemas.contract_schema import (
     ContractCreate,
     ContractDetailRead,
@@ -90,10 +91,12 @@ class ContractService:
         customer_client: CustomerClient,
         price_client: PriceClient,
         crud: ContractCRUD = contract_crud,
+        events: EventPublisher | None = None,
     ) -> None:
         self.customer_client = customer_client
         self.price_client = price_client
         self.crud = crud
+        self.events = events or NoOpEventPublisher()
 
     def create_contract(
         self, db: Session, contract_in: ContractCreate, idempotency_key: str
@@ -147,6 +150,44 @@ class ContractService:
         contract = self._get_contract_or_raise(db, contract_id)
         self._validate_status_transition(contract.status, status_in.status)
         updated_contract = self.crud.update_status(db, contract, status_in.status)
+
+        if status_in.status == "SUBMITTED":
+            self.events.publish(
+                "CONTRACT_SUBMITTED",
+                {
+                    "contract_id": contract_id,
+                    "recipient_roles": ["ROLE_LEGAL", "ROLE_DIRECTOR"],
+                    "title": "Hợp đồng mới chờ duyệt",
+                    "content": f"Hợp đồng {contract_id} đã được gửi để duyệt.",
+                    "reference_type": "CONTRACT",
+                    "reference_id": contract_id,
+                },
+            )
+        elif status_in.status == "ACTIVE":
+            self.events.publish(
+                "CONTRACT_ACTIVATED",
+                {
+                    "contract_id": contract_id,
+                    "recipient_roles": ["ROLE_ACCOUNTANT", "ROLE_OPERATION", "ROLE_SALE"],
+                    "title": "Hợp đồng đã có hiệu lực",
+                    "content": f"Hợp đồng {contract_id} đã chính thức có hiệu lực.",
+                    "reference_type": "CONTRACT",
+                    "reference_id": contract_id,
+                },
+            )
+        elif status_in.status == "EXPIRED":
+            self.events.publish(
+                "CONTRACT_EXPIRED",
+                {
+                    "contract_id": contract_id,
+                    "recipient_roles": ["ROLE_ACCOUNTANT", "ROLE_OPERATION", "ROLE_SALE"],
+                    "title": "Hợp đồng đã hết hạn",
+                    "content": f"Hợp đồng {contract_id} đã hết hạn.",
+                    "reference_type": "CONTRACT",
+                    "reference_id": contract_id,
+                },
+            )
+
         return self._to_detail(updated_contract)
 
     def update_contract(
