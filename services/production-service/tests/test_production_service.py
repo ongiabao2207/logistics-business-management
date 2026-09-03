@@ -20,9 +20,9 @@ def service() -> ProductionService:
 
 def draft_payload(**overrides) -> ProductionPeriodCreate:
     data = {
-        "customer_id": "customer-demo", "contract_id": "HD-2026-DEMO-001",
-        "from_date": date(2026, 10, 1), "to_date": date(2026, 10, 31),
-        "details": [ProductionDetailInput(service_code="LOADING", recorded_date=date(2026, 10, 2), quantity="12", unit="CONTAINER")],
+        "customer_id": "KH-TCB-001", "contract_id": "HD-2024-TCB-082",
+        "from_date": date(2024, 10, 1), "to_date": date(2024, 10, 31),
+        "details": [ProductionDetailInput(service_code="LOADING", recorded_date=date(2024, 10, 2), quantity="12", unit="CONTAINER")],
     }
     data.update(overrides)
     return ProductionPeriodCreate(**data)
@@ -31,7 +31,7 @@ def draft_payload(**overrides) -> ProductionPeriodCreate:
 def test_creates_draft_and_outbox_event(service: ProductionService) -> None:
     period = service.create_draft(draft_payload(), "operations-1")
     assert period.status == "DRAFT"
-    assert period.period_name == "SL-2026-001"
+    assert period.period_name == "SL-2024-001"
     assert len(period.details) == 1
 
 
@@ -39,15 +39,15 @@ def test_period_codes_increment_within_the_contract_year(service: ProductionServ
     first = service.create_draft(draft_payload(), "operations-1")
     second = service.create_draft(
         draft_payload(
-            from_date=date(2026, 2, 1),
-            to_date=date(2026, 2, 28),
-            details=[ProductionDetailInput(service_code="LOADING", recorded_date=date(2026, 2, 2), quantity="12", unit="CONTAINER")],
+            from_date=date(2024, 11, 1),
+            to_date=date(2024, 11, 30),
+            details=[ProductionDetailInput(service_code="LOADING", recorded_date=date(2024, 11, 2), quantity="12", unit="CONTAINER")],
         ),
         "operations-1",
     )
 
-    assert first.period_name == "SL-2026-001"
-    assert second.period_name == "SL-2026-002"
+    assert first.period_name == "SL-2024-001"
+    assert second.period_name == "SL-2024-002"
 
 
 def test_rejects_overlapping_period(service: ProductionService) -> None:
@@ -55,9 +55,9 @@ def test_rejects_overlapping_period(service: ProductionService) -> None:
     with pytest.raises(HTTPException) as error:
         service.create_draft(
             draft_payload(
-                from_date=date(2026, 10, 20),
-                to_date=date(2026, 11, 5),
-                details=[ProductionDetailInput(service_code="LOADING", recorded_date=date(2026, 10, 20), quantity="12", unit="CONTAINER")],
+                from_date=date(2024, 10, 20),
+                to_date=date(2024, 11, 5),
+                details=[ProductionDetailInput(service_code="LOADING", recorded_date=date(2024, 10, 20), quantity="12", unit="CONTAINER")],
             ),
             "operations-1",
         )
@@ -75,7 +75,7 @@ def test_locked_period_is_immutable_and_eligible(service: ProductionService) -> 
 
 
 def test_rejects_record_outside_period(service: ProductionService) -> None:
-    payload = draft_payload(details=[ProductionDetailInput(service_code="LOADING", recorded_date=date(2026, 11, 1), quantity="1", unit="CONTAINER")])
+    payload = draft_payload(details=[ProductionDetailInput(service_code="LOADING", recorded_date=date(2024, 11, 1), quantity="1", unit="CONTAINER")])
     with pytest.raises(HTTPException) as error:
         service.create_draft(payload, "operations-1")
     assert error.value.status_code == 422

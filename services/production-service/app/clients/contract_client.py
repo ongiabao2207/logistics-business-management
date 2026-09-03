@@ -38,8 +38,6 @@ class FakeContractClient:
     """Deterministic development substitute until Contract Service exposes its API."""
 
     def validate_production_period(self, contract_id: str, from_date: date, to_date: date) -> ContractValidation:
-        if contract_id == "invalid-contract":
-            raise ValueError("Contract is not valid for the requested production period")
         seed_customers = {
             "HD-2024-TCB-082": "KH-TCB-001",
             "CONT-2023-GT-01": "KH-GTECH-002",
@@ -47,7 +45,10 @@ class FakeContractClient:
             "HD-2023-VOS-001": "KH-VOS-004",
             "HD-SHO-2024-LGT": "KH-SHO-005",
         }
+        customer_id = seed_customers.get(contract_id)
+        if customer_id is None:
+            raise ValueError("Contract is not available in the development seed data")
         return ContractValidation(
-            customer_id=seed_customers.get(contract_id, "customer-demo"),
+            customer_id=customer_id,
             allowed_service_codes={"LOADING", "STORAGE", "TRANSPORT", "SRV-BX-20FT", "SRV-BX-40FT", "SRV-STORAGE", "SRV-TRANSPORT", "SRV-COUNT", "SRV-LIFT"},
         )

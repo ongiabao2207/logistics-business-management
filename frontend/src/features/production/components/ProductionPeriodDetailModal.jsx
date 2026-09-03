@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Lock, Save, History, Plus, Trash2, Edit2, CheckCircle2, ShieldAlert } from "lucide-react";
+import { X, Lock, Save, Plus, Trash2, CheckCircle2, ShieldAlert } from "lucide-react";
 import { SERVICE_CATALOG } from "../constants/productionConstants";
 import { productionApi } from "../api/productionApi";
 
@@ -138,58 +138,6 @@ export function ProductionPeriodDetailModal({ isOpen, periodId, onClose, onRefre
             <div style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>Đang tải dữ liệu sản lượng...</div>
           ) : (
             <div className="reconcile-layout">
-              {/* Audit Sidebar */}
-              <div className="audit-sidebar">
-                <h4>
-                  <History size={16} />
-                  Nhật ký truy vết
-                </h4>
-                <div className="audit-timeline">
-                  {isLocked && (
-                    <div className="audit-timeline-item">
-                      <div className="audit-icon-dot active">
-                        <Lock size={12} />
-                      </div>
-                      <div className="audit-info">
-                        <strong>Khóa kỳ sản lượng</strong>
-                        <span>Bởi {period.locked_by || "Lê Minh Tuấn"}</span>
-                        <time>{new Date(period.locked_at || period.updated_at).toLocaleString("vi-VN")}</time>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="audit-timeline-item">
-                    <div className="audit-icon-dot">
-                      <Edit2 size={12} />
-                    </div>
-                    <div className="audit-info">
-                      <strong>Cập nhật số liệu đối soát</strong>
-                      <span>Bởi Nguyễn Hoàng Uyển Như</span>
-                      <time>{new Date(period?.updated_at || Date.now()).toLocaleString("vi-VN")}</time>
-                    </div>
-                  </div>
-
-                  <div className="audit-timeline-item">
-                    <div className="audit-icon-dot">
-                      <Plus size={12} />
-                    </div>
-                    <div className="audit-info">
-                      <strong>Tạo bản ghi kỳ sản lượng</strong>
-                      <span>Bởi Nhân viên Khai thác</span>
-                      <time>{new Date(period?.created_at || Date.now()).toLocaleString("vi-VN")}</time>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ marginTop: "24px", padding: "12px", background: "#ffffff", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-                  <h5 style={{ margin: "0 0 6px", fontSize: "12px", color: "#0f766e", fontWeight: "700" }}>THÔNG TIN HỖ TRỢ</h5>
-                  <p style={{ margin: 0, fontSize: "11.5px", color: "#64748b", lineHeight: "1.4" }}>
-                    Hãy đảm bảo tất cả số liệu đã được đối chiếu với báo cáo vận hành hàng tuần trước khi thực hiện khóa kỳ.
-                  </p>
-                </div>
-              </div>
-
-              {/* Main Content Area */}
               <div>
                 {saveSuccess && (
                   <div className="alert-box success" style={{ padding: "10px 14px", marginBottom: "16px" }}>

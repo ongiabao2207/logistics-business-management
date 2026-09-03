@@ -61,6 +61,11 @@ export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess, pageMo
     setDetails(updated);
   };
 
+  const handleFromDateChange = (value) => {
+    setFromDate(value);
+    setDetails((currentDetails) => currentDetails.map((detail) => ({ ...detail, recorded_date: value })));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setAlertState(null);
@@ -261,7 +266,7 @@ export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess, pageMo
                     className="form-control"
                     type="date"
                     value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
+                    onChange={(e) => handleFromDateChange(e.target.value)}
                     required
                   />
                 </div>

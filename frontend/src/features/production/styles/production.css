@@ -383,15 +383,11 @@
 
 /* Reconcile Layout Sidebar & Main */
 .reconcile-layout {
-  display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
-  gap: 20px;
+  display: block;
 }
 
 @media (max-width: 860px) {
-  .reconcile-layout {
-    grid-template-columns: 1fr;
-  }
+  .reconcile-layout { display: block; }
 }
 
 .audit-sidebar {

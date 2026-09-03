@@ -1,15 +1,8 @@
 import { httpClient } from "../../../services/httpClient";
-import { INITIAL_PERIODS, SAMPLE_CUSTOMERS } from "../constants/productionConstants";
+import { INITIAL_PERIODS } from "../constants/productionConstants";
 
 // In-memory fallback state for smooth offline/standalone frontend execution
 let localPeriods = [...INITIAL_PERIODS];
-
-function createLocalPeriodCode(contractId) {
-  const year = contractId.match(/20\d{2}/)?.[0];
-  if (!year) throw new Error("Mã hợp đồng phải chứa năm theo định dạng HD-YYYY-...");
-  const sequence = localPeriods.filter((period) => period.contract_id.match(/20\d{2}/)?.[0] === year).length + 1;
-  return `SL-${year}-${String(sequence).padStart(3, "0")}`;
-}
 
 export const productionApi = {
   async listProductionPeriods(params = {}) {
@@ -78,40 +71,9 @@ export const productionApi = {
   },
 
   async createDraft(payload, actorId = "USR-OP-01") {
-    try {
-      const data = await httpClient.post("/api/v1/production-periods/draft", payload, {
-        headers: { "X-User-Id": actorId },
-      });
-      return data;
-    } catch {
-      const customer = SAMPLE_CUSTOMERS.find((c) => c.id === payload.customer_id);
-
-      const newPeriod = {
-        id: Date.now(),
-        customer_id: payload.customer_id,
-        customer_name: customer ? customer.name : payload.customer_id,
-        contract_id: payload.contract_id,
-        period_name: createLocalPeriodCode(payload.contract_id),
-        from_date: payload.from_date,
-        to_date: payload.to_date,
-        status: "DRAFT",
-        locked_at: null,
-        locked_by: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        details: (payload.details || []).map((d, index) => ({
-          id: Date.now() + index,
-          service_code: d.service_code,
-          recorded_date: d.recorded_date,
-          quantity: Number(d.quantity),
-          unit: d.unit,
-          notes: d.notes || "",
-        })),
-      };
-
-      localPeriods.unshift(newPeriod);
-      return newPeriod;
-    }
+    return httpClient.post("/api/v1/production-periods/draft", payload, {
+      headers: { "X-User-Id": actorId },
+    });
   },
 
   async replaceProductionDetails(periodId, payload) {
