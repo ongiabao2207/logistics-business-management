@@ -16,6 +16,9 @@ export const priceApi = {
   getPriceList(priceListId) {
     return httpClient.get(`/api/v1/price-lists/${priceListId}`);
   },
+  getEffectiveServicePrice(serviceId) {
+    return httpClient.get(`/api/v1/price-lists/effective/services/${serviceId}`);
+  },
   createPriceList(payload) {
     return httpClient.post("/api/v1/price-lists", payload);
   },
@@ -33,8 +36,5 @@ export const priceApi = {
   },
   rejectPriceList(priceListId) {
     return httpClient.post(`/api/v1/price-lists/${priceListId}/reject`);
-  },
-  getEffectiveServicePrice(serviceId) {
-    return httpClient.get(`/api/v1/price-lists/effective/services/${serviceId}`);
   },
 };
