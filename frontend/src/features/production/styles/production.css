@@ -340,6 +340,23 @@
   margin-left: 2px;
 }
 
+/* Override the shared form-grid label rule: icon, text and required mark form one label row. */
+.production-create-card .form-grid > .form-group > label {
+  display: flex !important;
+  align-items: center;
+  gap: 4px;
+}
+
+.production-create-card .form-grid > .form-group > label svg {
+  display: block !important;
+  flex: 0 0 auto;
+  margin-right: 0 !important;
+}
+
+.production-create-card .form-grid > .form-group > label .required {
+  margin-left: 0;
+}
+
 .form-control {
   padding: 9px 12px;
   border: 1px solid #cbd5e1;
