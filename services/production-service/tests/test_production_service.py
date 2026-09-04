@@ -1,4 +1,5 @@
 from datetime import date
+import json
 
 import pytest
 from fastapi import HTTPException
@@ -7,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.clients.contract_client import FakeContractClient
 from app.db.base import Base
+from app.models.production_model import OutboxEvent
 from app.schemas.production_schema import ProductionDetailInput, ProductionPeriodCreate
 from app.services.production_service import ProductionService
 
@@ -72,6 +74,18 @@ def test_locked_period_is_immutable_and_eligible(service: ProductionService) -> 
     with pytest.raises(HTTPException) as error:
         service.replace_details(period.id, draft_payload().details)
     assert error.value.status_code == 409
+
+
+def test_lock_event_has_accountant_friendly_notification_text(service: ProductionService) -> None:
+    period = service.create_draft(draft_payload(), "operations-1")
+    service.lock_period(period.id, "operations-2")
+
+    event = service.db.query(OutboxEvent).filter_by(event_type="PRODUCTION_PERIOD_LOCKED").one()
+    payload = json.loads(event.payload)
+
+    assert payload["title"] == "Kỳ sản lượng đã được khóa"
+    assert payload["content"] == "Kỳ sản lượng SL-2024-001 thuộc hợp đồng HD-2024-TCB-082 đã được khóa."
+    assert payload["recipient_role"] == "ROLE_ACCOUNTANT"
 
 
 def test_accountant_sees_only_locked_periods(service: ProductionService) -> None:

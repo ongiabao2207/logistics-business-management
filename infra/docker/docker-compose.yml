@@ -336,7 +336,7 @@ services:
     restart: unless-stopped
     environment:
       PRODUCTION_DATABASE_URL: postgresql+psycopg://${PRODUCTION_DB_USER:-production_user}:${PRODUCTION_DB_PASSWORD:-production_password}@production-db:5432/${PRODUCTION_DB_NAME:-production_db}
-      PRODUCTION_CONTRACT_CLIENT_MODE: fake
+      PRODUCTION_CONTRACT_CLIENT_MODE: http
       PRODUCTION_CONTRACT_SERVICE_URL: http://contract-service:8000
       PRODUCTION_IDENTITY_JWKS_URL: http://identity-service:8000/.well-known/jwks.json
       PRODUCTION_JWT_ISSUER: identity-service

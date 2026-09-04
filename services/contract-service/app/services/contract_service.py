@@ -18,6 +18,7 @@ from app.schemas.contract_schema import (
     ContractCreate,
     ContractDetailRead,
     ContractDetailServiceRead,
+    ProductionContractValidationRead,
     ContractServiceCreate,
     ContractSummaryRead,
     ContractStatusUpdate,
@@ -140,6 +141,19 @@ class ContractService:
     def get_contract_detail(self, db: Session, contract_id: str) -> ContractDetailRead:
         contract = self._get_contract_or_raise(db, contract_id)
         return self._to_detail(contract)
+
+    def validate_production_period(
+        self, db: Session, contract_id: str, from_date: date, to_date: date
+    ) -> ProductionContractValidationRead:
+        contract = self._get_contract_or_raise(db, contract_id)
+        if contract.status != "ACTIVE":
+            raise ContractValidationError("contract is not active")
+        if from_date < contract.valid_from or to_date > contract.valid_to:
+            raise ContractValidationError("production period must fall within the contract validity period")
+        return ProductionContractValidationRead(
+            customer_id=contract.customer_id,
+            service_codes=[str(service.service_id) for service in contract.services],
+        )
 
     def update_contract_status(
         self,
@@ -306,6 +320,7 @@ class ContractService:
     def _to_summary(self, contract: Contract) -> ContractSummaryRead:
         return ContractSummaryRead(
             contract_id=contract.id,
+            customer_id=contract.customer_id,
             customer_name=self._resolve_customer_name(contract.customer_id),
             valid_from=contract.valid_from,
             valid_to=contract.valid_to,
@@ -339,6 +354,7 @@ class ContractService:
             services=[
                 ContractDetailServiceRead(
                     id=service.id,
+                    service_id=service.service_id,
                     service_name=service.service_name,
                     service_unit=service.service_unit,
                     service_price=service.service_price,

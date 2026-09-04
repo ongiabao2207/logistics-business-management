@@ -23,13 +23,19 @@ class HttpContractClient:
         self.access_token = access_token
 
     def validate_production_period(self, contract_id: str, from_date: date, to_date: date) -> ContractValidation:
-        response = httpx.get(
-            f"{self.base_url}/api/v1/contracts/{contract_id}/validate-services",
-            params={"fromDate": from_date.isoformat(), "toDate": to_date.isoformat()},
-            headers={"Authorization": f"Bearer {self.access_token}"} if self.access_token else None,
-            timeout=5.0,
-        )
-        response.raise_for_status()
+        try:
+            response = httpx.get(
+                f"{self.base_url}/api/v1/contracts/{contract_id}/validate-services",
+                params={"fromDate": from_date.isoformat(), "toDate": to_date.isoformat()},
+                headers={"Authorization": f"Bearer {self.access_token}"} if self.access_token else None,
+                timeout=5.0,
+            )
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            detail = exc.response.json().get("detail", "Contract validation failed")
+            raise ValueError(detail) from exc
+        except httpx.RequestError as exc:
+            raise ValueError("Contract service is unavailable") from exc
         data = response.json()
         return ContractValidation(customer_id=data["customer_id"], allowed_service_codes=set(data["service_codes"]))
 

@@ -2,10 +2,12 @@ import React, { useState, useEffect } from "react";
 import { X, Lock, Save, Plus, Trash2, CheckCircle2, ShieldAlert } from "lucide-react";
 import { SERVICE_CATALOG } from "../constants/productionConstants";
 import { productionApi } from "../api/productionApi";
+import { contractApi } from "../../contracts/api/contractApi";
 
 export function ProductionPeriodDetailModal({ isOpen, periodId, onClose, onRefreshList, onOpenLockModal }) {
   const [period, setPeriod] = useState(null);
   const [details, setDetails] = useState([]);
+  const [contractServices, setContractServices] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -22,6 +24,13 @@ export function ProductionPeriodDetailModal({ isOpen, periodId, onClose, onRefre
       const data = await productionApi.getProductionPeriod(periodId);
       setPeriod(data);
       setDetails(data.details || []);
+      try {
+        const contract = await contractApi.getContract(data.contract_id);
+        setContractServices(contract.services || []);
+      } catch {
+        // The period details remain readable even if Contract Service is unavailable.
+        setContractServices([]);
+      }
     } catch (err) {
       alert(`Không thể tải thông tin kỳ sản lượng: ${err.message}`);
     } finally {
@@ -49,7 +58,7 @@ export function ProductionPeriodDetailModal({ isOpen, periodId, onClose, onRefre
 
   const handleAddServiceItem = (serviceCode, unit) => {
     if (isLocked) return;
-    const srv = SERVICE_CATALOG.find((s) => s.code === serviceCode);
+    const srv = SERVICE_CATALOG.find((s) => String(s.code) === String(serviceCode));
     setDetails([
       ...details,
       {
@@ -94,16 +103,38 @@ export function ProductionPeriodDetailModal({ isOpen, periodId, onClose, onRefre
     }
   };
 
-  // Group details by service_code
-  const groupedDetails = SERVICE_CATALOG.map((srv) => {
-    const items = details.filter((d) => d.service_code === srv.code);
-    const subtotal = items.reduce((acc, item) => acc + Number(item.quantity || 0), 0);
-    return {
-      service: srv,
-      items,
-      subtotal,
-    };
-  }).filter((group) => group.items.length > 0 || !isLocked);
+  // Use the services of the period's own contract whenever available. This keeps
+  // both draft and locked periods compatible with the real API service IDs.
+  const availableServices = contractServices.length > 0
+    ? contractServices.map((service) => ({
+        code: String(service.service_id),
+        name: service.service_name,
+        unit: service.service_unit,
+      }))
+    : SERVICE_CATALOG;
+
+  const groupedDetails = (() => {
+    const groups = {};
+    availableServices.forEach((service) => {
+      const code = String(service.code);
+      groups[code] = { service: { ...service, code }, items: [], subtotal: 0 };
+    });
+
+    details.forEach((item) => {
+      const code = String(item.service_code);
+      if (!groups[code]) {
+        groups[code] = {
+          service: { code, name: `Dịch vụ ${code}`, unit: item.unit || "" },
+          items: [],
+          subtotal: 0,
+        };
+      }
+      groups[code].items.push(item);
+      groups[code].subtotal += Number(item.quantity || 0);
+    });
+
+    return Object.values(groups).filter((group) => !isLocked || group.items.length > 0);
+  })();
 
   return (
     <div className="modal-overlay">

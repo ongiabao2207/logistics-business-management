@@ -153,7 +153,7 @@ class ProductionService:
 
     @staticmethod
     def _event_payload(period: ProductionPeriod, actor_id: str, status_before: str | None, status_after: str) -> dict:
-        return {
+        payload = {
             "actor_id": actor_id,
             "period_id": period.id,
             "customer_id": period.customer_id,
@@ -162,3 +162,16 @@ class ProductionService:
             "status_after": status_after,
             "recipient_role": "ROLE_ACCOUNTANT" if status_after == ProductionPeriodStatus.LOCKED.value else None,
         }
+        if status_after == ProductionPeriodStatus.LOCKED.value:
+            payload.update(
+                {
+                    "title": "Kỳ sản lượng đã được khóa",
+                    "content": (
+                        f"Kỳ sản lượng {period.period_name} thuộc hợp đồng "
+                        f"{period.contract_id} đã được khóa."
+                    ),
+                    "reference_type": "PRODUCTION_PERIOD",
+                    "reference_id": str(period.id),
+                }
+            )
+        return payload

@@ -1,27 +1,68 @@
 import React, { useState, useEffect } from "react";
 import { X, Plus, Trash2, AlertTriangle, CheckCircle, Calendar, Building, FileText } from "lucide-react";
-import { SEED_CONTRACTS, SERVICE_CATALOG } from "../constants/productionConstants";
+import { contractApi } from "../../contracts/api/contractApi";
 import { productionApi } from "../api/productionApi";
 
 export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess, pageMode = false }) {
   const [selectedContractId, setSelectedContractId] = useState("");
+  const [contracts, setContracts] = useState([]);
+  const [selectedContract, setSelectedContract] = useState(null);
+  const [isContractsLoading, setIsContractsLoading] = useState(true);
+  const [contractsError, setContractsError] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  const [details, setDetails] = useState([
-    {
-      service_code: "SRV-BX-20FT",
-      recorded_date: new Date().toISOString().split("T")[0],
-      quantity: 10,
-      unit: "Cont",
-      notes: "Bốc xếp container nhập bãi",
-    },
-  ]);
+  const [details, setDetails] = useState([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [alertState, setAlertState] = useState(null);
 
-  const contract = SEED_CONTRACTS.find((item) => item.id === selectedContractId);
+  const contract = contracts.find((item) => item.contract_id === selectedContractId);
+  const contractServices = selectedContract?.services ?? [];
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsContractsLoading(true);
+    setContractsError("");
+    contractApi.listContracts()
+      .then((items) => {
+        if (!cancelled) setContracts(items.filter((item) => item.status === "ACTIVE"));
+      })
+      .catch((error) => {
+        if (!cancelled) setContractsError(error.message || "Không thể tải danh sách hợp đồng.");
+      })
+      .finally(() => {
+        if (!cancelled) setIsContractsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSelectedContract(null);
+    setDetails([]);
+    if (!selectedContractId) return () => { cancelled = true; };
+
+    contractApi.getContract(selectedContractId)
+      .then((item) => {
+        if (cancelled) return;
+        setSelectedContract(item);
+        const firstService = item.services[0];
+        if (firstService) {
+          setDetails([{
+            service_code: String(firstService.service_id),
+            recorded_date: new Date().toISOString().split("T")[0],
+            quantity: 1,
+            unit: firstService.service_unit,
+            notes: "",
+          }]);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) setContractsError(error.message || "Không thể tải chi tiết hợp đồng.");
+      });
+    return () => { cancelled = true; };
+  }, [selectedContractId]);
 
   // The contract is the source of truth; its linked customer is displayed automatically.
   useEffect(() => {
@@ -31,14 +72,15 @@ export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess, pageMo
   if (!isOpen) return null;
 
   const handleAddRow = () => {
-    const defaultSrv = SERVICE_CATALOG[0];
+    const defaultSrv = contractServices[0];
+    if (!defaultSrv) return;
     setDetails([
       ...details,
       {
-        service_code: defaultSrv.code,
+        service_code: String(defaultSrv.service_id),
         recorded_date: fromDate || new Date().toISOString().split("T")[0],
         quantity: 1,
-        unit: defaultSrv.unit,
+        unit: defaultSrv.service_unit,
         notes: "",
       },
     ]);
@@ -53,9 +95,9 @@ export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess, pageMo
     const updated = [...details];
     updated[index][field] = value;
     if (field === "service_code") {
-      const match = SERVICE_CATALOG.find((s) => s.code === value);
+      const match = contractServices.find((service) => String(service.service_id) === value);
       if (match) {
-        updated[index].unit = match.unit;
+        updated[index].unit = match.service_unit;
       }
     }
     setDetails(updated);
@@ -92,14 +134,14 @@ export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess, pageMo
     if (contract) {
       const pFrom = new Date(fromDate);
       const pTo = new Date(toDate);
-      const cFrom = new Date(contract.validFrom);
-      const cTo = new Date(contract.validTo);
+      const cFrom = new Date(contract.valid_from);
+      const cTo = new Date(contract.valid_to);
 
       if (pFrom < cFrom || pTo > cTo) {
         setAlertState({
           type: "invalid_date",
           title: "Khoảng thời gian không hợp lệ",
-          message: `Khoảng thời gian tính phí bạn nhập nằm ngoài thời hạn hiệu lực của hợp đồng (${contract.validFrom} đến ${contract.validTo}). Vui lòng kiểm tra lại.`,
+          message: `Khoảng thời gian tính phí bạn nhập nằm ngoài thời hạn hiệu lực của hợp đồng (${contract.valid_from} đến ${contract.valid_to}). Vui lòng kiểm tra lại.`,
         });
         return;
       }
@@ -223,12 +265,15 @@ export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess, pageMo
                     required
                   >
                     <option value="">-- Chọn hợp đồng --</option>
-                    {SEED_CONTRACTS.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.id} — {item.name}
+                    {contracts.map((item) => (
+                      <option key={item.contract_id} value={item.contract_id}>
+                        {item.contract_id} — {item.customer_name}
                       </option>
                     ))}
                   </select>
+                  {isContractsLoading && <small>Đang tải hợp đồng từ hệ thống...</small>}
+                  {!isContractsLoading && contracts.length === 0 && !contractsError && <small>Chưa có hợp đồng hiệu lực để khai báo sản lượng.</small>}
+                  {contractsError && <small className="form-error">{contractsError}</small>}
                 </div>
 
                 <div className="form-group">
@@ -239,7 +284,7 @@ export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess, pageMo
                   <input
                     className="form-control"
                     type="text"
-                    value={contract ? `${contract.customer_name} (${contract.customer_id})` : ""}
+                  value={contract?.customer_name ?? ""}
                     placeholder="Tự động điền theo hợp đồng"
                     readOnly
                   />
@@ -250,7 +295,7 @@ export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess, pageMo
                   <input
                     className="form-control"
                     type="text"
-                    value={contract ? `SL-${contract.id.match(/20\d{2}/)?.[0] || "YYYY"}-XXX` : ""}
+                    value={contract ? `SL-${contract.contract_id.match(/20\d{2}/)?.[0] || "YYYY"}-XXX` : ""}
                     placeholder="Tự động tạo sau khi lưu"
                     readOnly
                   />
@@ -290,7 +335,7 @@ export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess, pageMo
               <div className="service-table-section">
                 <div className="service-table-header">
                   <h3>Danh mục dịch vụ &amp; Sản lượng thực tế</h3>
-                  <button className="btn-action secondary" type="button" onClick={handleAddRow}>
+                  <button className="btn-action secondary" type="button" onClick={handleAddRow} disabled={!contractServices.length}>
                     <Plus size={14} />
                     Thêm dòng sản lượng
                   </button>
@@ -317,9 +362,9 @@ export function CreateProductionPeriodModal({ isOpen, onClose, onSuccess, pageMo
                               value={item.service_code}
                               onChange={(e) => handleDetailChange(idx, "service_code", e.target.value)}
                             >
-                              {SERVICE_CATALOG.map((s) => (
-                                <option key={s.code} value={s.code}>
-                                  {s.name}
+                              {contractServices.map((service) => (
+                                <option key={service.service_id} value={String(service.service_id)}>
+                                  {service.service_name}
                                 </option>
                               ))}
                             </select>
