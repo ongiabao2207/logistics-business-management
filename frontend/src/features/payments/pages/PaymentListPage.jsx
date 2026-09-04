@@ -98,6 +98,12 @@ export function PaymentListPage() {
           (statusPriority[right.display_status] ?? 2);
 
         if (priorityDifference) return priorityDifference;
+      } else {
+        // Mã bảng được cấp tăng dần khi tạo. Ưu tiên mã mới nhất để dữ liệu
+        // seed có ngày tương lai không đẩy bảng người dùng vừa tạo xuống dưới.
+        const idDifference = right.id.localeCompare(left.id);
+
+        if (idDifference) return idDifference;
       }
 
       const leftDate = adjustmentView

@@ -118,8 +118,8 @@ class PaymentCrud:
         if period_end:
             statement = statement.where(Payment.period_end == period_end)
         statement = statement.order_by(
-            Payment.created_at.desc(),
             Payment.id.desc(),
+            Payment.created_at.desc(),
         ).offset(offset).limit(limit)
 
         return list(db.scalars(statement).all())
