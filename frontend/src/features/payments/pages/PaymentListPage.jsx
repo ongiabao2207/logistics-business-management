@@ -86,8 +86,29 @@ export function PaymentListPage() {
 
       return matchesStatus && matchesYear && matchesMonth && matchesKeyword;
     }).sort((left, right) => {
-      const createdDifference = new Date(right.created_at) - new Date(left.created_at);
-      return createdDifference || right.id.localeCompare(left.id);
+      // Hồ sơ điều chỉnh vừa được cập nhật/gửi lại phải xuất hiện ngay đầu
+      // trang 1. Danh sách thanh toán thông thường vẫn ưu tiên ngày tạo.
+      if (adjustmentView) {
+        const statusPriority = {
+          RESUBMITTED_PENDING_APPROVAL: 0,
+          REVISION_REQUESTED: 1,
+        };
+        const priorityDifference =
+          (statusPriority[left.display_status] ?? 2) -
+          (statusPriority[right.display_status] ?? 2);
+
+        if (priorityDifference) return priorityDifference;
+      }
+
+      const leftDate = adjustmentView
+        ? left.updated_at ?? left.created_at
+        : left.created_at;
+      const rightDate = adjustmentView
+        ? right.updated_at ?? right.created_at
+        : right.created_at;
+      const dateDifference = new Date(rightDate) - new Date(leftDate);
+
+      return dateDifference || right.id.localeCompare(left.id);
     });
   }, [payments, keyword, year, month, status, adjustmentView, getCustomerName]);
 
@@ -98,7 +119,7 @@ export function PaymentListPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [keyword, year, month, status]);
+  }, [keyword, year, month, status, adjustmentView]);
 
   function setStatus(value) {
     const nextParams = new URLSearchParams(params);
