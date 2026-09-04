@@ -16,6 +16,7 @@ function translateApiMessage(message) {
     "Payment must contain at least one service line": "Bảng thanh toán phải có ít nhất một hạng mục.",
     "Payment must retain at least one service line": "Bảng thanh toán phải giữ lại ít nhất một hạng mục.",
     "Adjustment must change at least one payment line": "Điều chỉnh phải làm thay đổi ít nhất một hạng mục.",
+    "Adjustment must change the tax rate": "Thuế suất mới phải khác thuế suất hiện tại.",
     "Only pending payments can be reviewed": "Chỉ bảng thanh toán đang chờ duyệt mới được phê duyệt.",
     "Payment can only be adjusted after rejection or a revision request": "Chỉ được điều chỉnh khi bảng thanh toán bị từ chối hoặc được yêu cầu chỉnh sửa.",
     "This approval revision request has already been applied": "Yêu cầu chỉnh sửa này đã được áp dụng trước đó.",

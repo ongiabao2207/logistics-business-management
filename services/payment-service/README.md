@@ -9,7 +9,8 @@ Service được xây dựng bằng FastAPI, SQLAlchemy và PostgreSQL. Payment 
 - Tính xem trước bảng thanh toán theo hợp đồng và kỳ.
 - Lưu bảng thanh toán dưới dạng nháp.
 - Lưu đơn giá tại thời điểm lập bảng (`unit_price_snapshot`).
-- Cho phép kế toán sửa sản lượng thanh toán khi bảng còn là nháp.
+- Cố định sản lượng tính tiền theo sản lượng Production đã xác nhận.
+- Cho phép kế toán sửa thuế suất khi bảng còn là nháp hoặc bị trả lại.
 - Gửi bảng thanh toán sang trạng thái chờ phê duyệt.
 - Ghi lại lịch sử điều chỉnh.
 - Ngăn tạo trùng bảng cho cùng hợp đồng và kỳ.
@@ -36,7 +37,7 @@ File seed chỉ nạp dữ liệu mẫu vào PostgreSQL của từng service. Kh
 4. Payment lấy sản lượng đúng kỳ từ Production Service.
 5. Payment lấy đơn giá hiệu lực từ Price Service.
 6. Payment tính tiền từng dòng, thuế và tổng tiền.
-7. Kế toán có thể giảm `billing_quantity`, nhưng không được sửa `confirmed_quantity`.
+7. Kế toán kiểm tra dữ liệu và có thể thay đổi thuế suất; sản lượng không được chỉnh sửa.
 8. Bấm **Lưu nháp** để ghi dữ liệu vào Payment PostgreSQL.
 9. Bấm **Lưu và gửi phê duyệt** để tạo Payment rồi chuyển sang `PENDING_APPROVAL`.
 
@@ -48,7 +49,8 @@ File seed chỉ nạp dữ liệu mẫu vào PostgreSQL của từng service. Kh
 - `period_end` phải lớn hơn hoặc bằng `period_start`.
 - Chỉ lấy sản lượng Production đủ điều kiện.
 - Mỗi dịch vụ phải có đơn giá hiệu lực tại ngày kết thúc kỳ.
-- Sản lượng thanh toán phải thỏa `0 < billing_quantity <= confirmed_quantity`.
+- Sản lượng dùng để tính tiền luôn bằng sản lượng Production đã xác nhận.
+- API tạo và chỉnh sửa không nhận danh sách dòng hoặc sản lượng từ người dùng.
 - Thuế suất từ `0` đến `1`; VAT 10% được gửi là `0.10`.
 - Chỉ bảng `DRAFT` được sửa bằng `PATCH`.
 - Bảng `REJECTED` hoặc `REVISION_REQUESTED` được sửa qua endpoint `adjustments`.
@@ -79,7 +81,7 @@ Tất cả API Payment dùng tiền tố `/api/v1`.
 | `PATCH` | `/api/v1/payments/{payment_id}` | `ROLE_ACCOUNTANT` | Sửa bản nháp |
 | `POST` | `/api/v1/payments/{payment_id}/submit` | `ROLE_ACCOUNTANT` | Gửi phê duyệt |
 | `POST` | `/api/v1/payments/{payment_id}/review` | Director hoặc Legal | Duyệt/từ chối mock |
-| `POST` | `/api/v1/payments/{payment_id}/adjustments` | `ROLE_ACCOUNTANT` | Điều chỉnh bảng bị trả lại |
+| `POST` | `/api/v1/payments/{payment_id}/adjustments` | `ROLE_ACCOUNTANT` | Lưu điều chỉnh và gửi phê duyệt lại |
 
 API danh sách hỗ trợ `offset`, `limit`, `contract_id`, `period_start` và `period_end`.
 
@@ -105,7 +107,7 @@ GET /api/v1/payments?contract_id=HD2026004&period_start=2026-09-01&period_end=20
 
 ### Lưu bản nháp
 
-Nếu không gửi `lines`, hệ thống sử dụng toàn bộ sản lượng hợp lệ từ Production.
+Hệ thống tự sử dụng toàn bộ sản lượng hợp lệ từ Production; client không gửi `lines`.
 
 ```json
 {
@@ -113,12 +115,7 @@ Nếu không gửi `lines`, hệ thống sử dụng toàn bộ sản lượng h
   "contract_id": "HD2026004",
   "period_start": "2026-09-01",
   "period_end": "2026-09-30",
-  "tax_rate": 0.10,
-  "lines": [
-    { "service_id": "1", "billing_quantity": 12 },
-    { "service_id": "2", "billing_quantity": 8 },
-    { "service_id": "3", "billing_quantity": 100 }
-  ]
+  "tax_rate": 0.10
 }
 ```
 
@@ -126,21 +123,8 @@ Nếu không gửi `lines`, hệ thống sử dụng toàn bộ sản lượng h
 
 ```json
 {
-  "reason": "Điều chỉnh theo biên bản đối soát",
-  "lines": [
-    { "service_id": "1", "billing_quantity": 10 }
-  ]
-}
-```
-
-Xóa một hạng mục khỏi bản nháp:
-
-```json
-{
-  "reason": "Hạng mục chưa đủ chứng từ thanh toán",
-  "lines": [
-    { "service_id": "2", "remove": true }
-  ]
+  "reason": "Điều chỉnh thuế suất theo chứng từ",
+  "tax_rate": 0.08
 }
 ```
 
@@ -149,10 +133,8 @@ Xóa một hạng mục khỏi bản nháp:
 ```json
 {
   "revision_request_id": "revision-request-001",
-  "adjustment_note": "Điều chỉnh sản lượng theo yêu cầu đối soát",
-  "lines": [
-    { "service_id": "1", "billing_quantity": 9 }
-  ]
+  "adjustment_note": "Điều chỉnh thuế suất theo yêu cầu phê duyệt",
+  "tax_rate": 0.08
 }
 ```
 
@@ -206,6 +188,7 @@ Dữ liệu demo gồm:
 - 5 dịch vụ trong Price Service.
 - Các hợp đồng Payment demo sử dụng service ID từ `1` đến `5`, tùy hợp đồng.
 - Ít nhất 18 bảng thanh toán ở nhiều trạng thái để thử bộ lọc và phân trang.
+- 8 bảng ở trạng thái `REVISION_REQUESTED` để thử luồng điều chỉnh và gửi phê duyệt lại.
 
 Các file seed:
 
@@ -247,7 +230,7 @@ docker compose -f infra/docker/docker-compose.yml exec -T payment-db `
 | Bảng | Nội dung |
 | --- | --- |
 | `payments` | Thông tin chung, kỳ, tổng tiền và trạng thái |
-| `payment_lines` | Dịch vụ và sản lượng thanh toán |
+| `payment_lines` | Dịch vụ và sản lượng Production đã xác nhận dùng để tính tiền |
 | `payment_adjustments` | Lịch sử chỉnh sửa/điều chỉnh |
 | `payment_number_sequences` | Số thứ tự mã Payment theo năm |
 

@@ -61,7 +61,21 @@ def test_payment_api_happy_path(client):
     )
 
 
-def test_create_payment_accepts_accountant_billing_quantity(client):
+def test_list_payments_returns_newest_payment_first(client):
+    first = client.post(BASE, json=payload("contract-list-first"))
+    second = client.post(BASE, json=payload("contract-list-second"))
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+
+    response = client.get(BASE)
+
+    assert response.status_code == 200
+    payment_ids = [payment["id"] for payment in response.json()]
+    assert payment_ids.index(second.json()["id"]) < payment_ids.index(first.json()["id"])
+
+
+def test_create_payment_rejects_accountant_billing_quantity(client):
     create_payload = payload("contract-create-adjusted")
     create_payload["lines"] = [
         {"service_id": "CONTAINER_20", "billing_quantity": 10}
@@ -69,12 +83,7 @@ def test_create_payment_accepts_accountant_billing_quantity(client):
 
     response = client.post(BASE, json=create_payload)
 
-    assert response.status_code == 201
-    data = response.json()
-    assert data["lines"][0]["confirmed_quantity"] == "12"
-    assert data["lines"][0]["billing_quantity"] == "10"
-    assert data["subtotal"] == "1200000"
-    assert data["total_amount"] == "1320000"
+    assert response.status_code == 422
 
 
 def test_accountant_applies_approval_revision_request(client, db_session):
@@ -94,24 +103,20 @@ def test_accountant_applies_approval_revision_request(client, db_session):
         f"{BASE}/{payment_id}/adjustments",
         json={
             "revision_request_id": "approval-revision-001",
-            "adjustment_note": "Adjusted DV001 using reconciliation records",
-            "lines": [
-                {
-                    "service_id": "CONTAINER_20",
-                    "billing_quantity": 10,
-                }
-            ],
+            "adjustment_note": "Correct the tax rate",
+            "tax_rate": "0.08",
         },
     )
 
     assert adjustment_response.status_code == 201
     adjusted = adjustment_response.json()
-    assert adjusted["status"] == "REVISION_REQUESTED"
+    assert adjusted["status"] == "PENDING_APPROVAL"
     assert adjusted["lines"][0]["confirmed_quantity"] == "12"
-    assert adjusted["lines"][0]["billing_quantity"] == "10"
-    assert adjusted["total_amount"] == "1320000"
+    assert adjusted["lines"][0]["billing_quantity"] == "12"
+    assert adjusted["lines"][0]["tax_rate"] == "0.08"
+    assert adjusted["total_amount"] == "1555200"
     assert adjusted["adjustments"][0]["revision_request_id"] == "approval-revision-001"
-    assert adjusted["adjustments"][0]["adjustment_note"].startswith("Adjusted DV001")
+    assert adjusted["adjustments"][0]["adjustment_note"] == "Correct the tax rate"
     assert adjusted["adjustments"][0]["change_type"] == "REVISION_ADJUSTMENT"
 
     get_response = client.get(
@@ -120,19 +125,15 @@ def test_accountant_applies_approval_revision_request(client, db_session):
 
     assert get_response.status_code == 200
 
-    assert get_response.json()["total_amount"] == "1320000"
+    assert get_response.json()["status"] == "PENDING_APPROVAL"
+    assert get_response.json()["total_amount"] == "1555200"
 
     duplicate_response = client.post(
         f"{BASE}/{payment_id}/adjustments",
         json={
             "revision_request_id": "approval-revision-001",
             "adjustment_note": "Attempt to apply the same request twice",
-            "lines": [
-                {
-                    "service_id": "CONTAINER_20",
-                    "billing_quantity": 9,
-                }
-            ],
+            "tax_rate": "0.07",
         },
     )
     assert duplicate_response.status_code == 409
@@ -147,12 +148,7 @@ def test_adjustment_rejects_draft_payment(client):
         json={
             "revision_request_id": "approval-revision-002",
             "adjustment_note": "Payment has not been returned by approval",
-            "lines": [
-                {
-                    "service_id": "CONTAINER_20",
-                    "billing_quantity": 10,
-                }
-            ],
+            "tax_rate": "0.08",
         },
     )
 
@@ -228,7 +224,7 @@ def test_create_payment_rejects_duplicate(client):
     )
 
 
-def test_update_draft_replaces_lines_and_recalculates(client):
+def test_update_draft_changes_tax_and_keeps_confirmed_quantity(client):
     create_response = client.post(BASE, json=payload())
     assert create_response.status_code == 201
     payment_id = create_response.json()["id"]
@@ -236,14 +232,8 @@ def test_update_draft_replaces_lines_and_recalculates(client):
     update_response = client.patch(
         f"{BASE}/{payment_id}",
         json={
-            "reason": "Exclude two unbillable containers",
+            "reason": "Correct tax rate",
             "tax_rate": "0.08",
-            "lines": [
-                {
-                    "service_id": "CONTAINER_20",
-                    "billing_quantity": "10",
-                }
-            ],
         },
     )
 
@@ -251,11 +241,11 @@ def test_update_draft_replaces_lines_and_recalculates(client):
     updated = update_response.json()
     assert updated["status"] == "DRAFT"
     assert updated["lines"][0]["confirmed_quantity"] == "12"
-    assert updated["lines"][0]["billing_quantity"] == "10"
+    assert updated["lines"][0]["billing_quantity"] == "12"
     assert updated["lines"][0]["unit_price_snapshot"] == "120000"
-    assert updated["subtotal"] == "1200000"
-    assert updated["tax_amount"] == "96000"
-    assert updated["total_amount"] == "1296000"
+    assert updated["subtotal"] == "1440000"
+    assert updated["tax_amount"] == "115200"
+    assert updated["total_amount"] == "1555200"
     assert updated["adjustments"][0]["change_type"] == "DRAFT_EDIT"
     assert updated["adjustments"][0]["action"] == "UPDATE"
 
@@ -275,39 +265,19 @@ def test_submitted_payment_cannot_be_updated(client):
     assert "cannot be edited" in update_response.json()["detail"]
 
 
-def test_update_rejects_quantity_above_confirmed_production(client):
+def test_update_rejects_billing_quantity(client):
     create_response = client.post(BASE, json=payload())
     payment_id = create_response.json()["id"]
 
     response = client.patch(
         f"{BASE}/{payment_id}",
         json={
-            "reason": "Incorrectly increase billed production",
+            "reason": "Attempt to edit confirmed production",
+            "tax_rate": "0.08",
             "lines": [
                 {
                     "service_id": "CONTAINER_20",
                     "billing_quantity": "13",
-                }
-            ],
-        },
-    )
-
-    assert response.status_code == 422
-    assert "must not exceed" in response.json()["detail"]
-
-
-def test_update_rejects_zero_billing_quantity(client):
-    create_response = client.post(BASE, json=payload())
-    payment_id = create_response.json()["id"]
-
-    response = client.patch(
-        f"{BASE}/{payment_id}",
-        json={
-            "reason": "Invalid zero billed production",
-            "lines": [
-                {
-                    "service_id": "CONTAINER_20",
-                    "billing_quantity": "0",
                 }
             ],
         },

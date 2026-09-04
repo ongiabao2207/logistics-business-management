@@ -2,7 +2,6 @@ import {
   CalendarDays,
   FileText,
   Pencil,
-  PlusCircle,
   Save,
   Send,
   UserRound,
@@ -30,6 +29,17 @@ function datesFromPeriod(period) {
   };
 }
 
+function recalculateTax(payment, taxRate) {
+  const rate = Number(taxRate);
+  const lines = payment.lines.map((line) => {
+    const lineAmount = Number(line.confirmed_quantity) * Number(line.unit_price_snapshot);
+    return { ...line, line_amount: lineAmount, tax_rate: rate, tax_amount: lineAmount * rate };
+  });
+  const subtotal = lines.reduce((sum, line) => sum + line.line_amount, 0);
+  const taxAmount = lines.reduce((sum, line) => sum + line.tax_amount, 0);
+  return { ...payment, lines, subtotal, tax_amount: taxAmount, total_amount: subtotal + taxAmount };
+}
+
 export function PaymentCreatePage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -51,11 +61,7 @@ export function PaymentCreatePage() {
     period_start: form.period_start,
     period_end: form.period_end,
   });
-  const [values, setValues] = useState({});
-  const [visibleIds, setVisibleIds] = useState([]);
-  const [showAddItems, setShowAddItems] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [localError, setLocalError] = useState("");
   const customerName = getCustomerName(form.contract_id, form.customer_id);
   const payload = { ...form, tax_rate: Number(form.tax_rate) };
   const error = preview.error ?? create.error ?? submit.error;
@@ -72,79 +78,23 @@ export function PaymentCreatePage() {
     }
   }, [existingPayment, navigate]);
 
-  const displayedPayment = useMemo(() => {
-    if (!preview.data) return null;
-    const lines = preview.data.lines.filter((line) => visibleIds.includes(line.service_id)).map((line) => {
-      const billingQuantity = Number(values[line.service_id] ?? line.billing_quantity);
-      const validQuantity = Number.isFinite(billingQuantity) && billingQuantity > 0 && billingQuantity <= Number(line.confirmed_quantity)
-        ? billingQuantity
-        : 0;
-      const lineAmount = validQuantity * Number(line.unit_price_snapshot);
-      const taxAmount = lineAmount * Number(line.tax_rate);
-      return { ...line, billing_quantity: billingQuantity, line_amount: lineAmount, tax_amount: taxAmount };
-    });
-    const subtotal = lines.reduce((sum, line) => sum + line.line_amount, 0);
-    const taxAmount = lines.reduce((sum, line) => sum + line.tax_amount, 0);
-    return { ...preview.data, lines, subtotal, tax_amount: taxAmount, total_amount: subtotal + taxAmount };
-  }, [preview.data, values, visibleIds]);
-
-  const removedLines = preview.data?.lines.filter(
-    (line) => !visibleIds.includes(line.service_id),
-  ) ?? [];
+  const displayedPayment = useMemo(
+    () => preview.data ? recalculateTax(preview.data, form.tax_rate) : null,
+    [preview.data, form.tax_rate],
+  );
 
   const change = (event) => setForm((current) => ({
     ...current,
     [event.target.name]: event.target.value,
   }));
 
-  const calculate = () => preview.mutate(payload, {
-    onSuccess(data) {
-      setValues(Object.fromEntries(data.lines.map((line) => [line.service_id, line.billing_quantity])));
-      setVisibleIds(data.lines.map((line) => line.service_id));
-      setShowAddItems(false);
-      setLocalError("");
-    },
-  });
-
-  const changeQuantity = (serviceId, value) => {
-    setValues((current) => ({ ...current, [serviceId]: value }));
-    const line = preview.data?.lines.find((item) => item.service_id === serviceId);
-    const quantity = Number(value);
-    if (!Number.isFinite(quantity) || quantity <= 0) {
-      setLocalError(`Sản lượng thanh toán của “${line?.description ?? "hạng mục"}” phải lớn hơn 0.`);
-    } else if (line && quantity > Number(line.confirmed_quantity)) {
-      setLocalError(`Sản lượng thanh toán của “${line.description}” không được lớn hơn sản lượng xác nhận.`);
-    } else {
-      setLocalError("");
-    }
-  };
+  const calculate = () => preview.mutate(payload);
 
   const save = async (andSubmit) => {
     if (!displayedPayment || saving) return;
-    const nonPositiveLine = displayedPayment.lines.find(
-      (line) => !Number.isFinite(Number(line.billing_quantity)) || Number(line.billing_quantity) <= 0,
-    );
-    if (nonPositiveLine) {
-      setLocalError(`Sản lượng thanh toán của “${nonPositiveLine.description}” phải lớn hơn 0.`);
-      return;
-    }
-    const invalidLine = displayedPayment.lines.find(
-      (line) => Number(line.billing_quantity) > Number(line.confirmed_quantity),
-    );
-    if (invalidLine) {
-      setLocalError(`Sản lượng thanh toán của “${invalidLine.description}” không được lớn hơn sản lượng xác nhận.`);
-      return;
-    }
-    setLocalError("");
     setSaving(true);
     try {
-      let payment = await create.mutateAsync({
-        ...payload,
-        lines: displayedPayment.lines.map((line) => ({
-          service_id: line.service_id,
-          billing_quantity: Number(line.billing_quantity),
-        })),
-      });
+      let payment = await create.mutateAsync(payload);
       if (andSubmit) {
         payment = await submit.mutateAsync(payment.id);
         navigate(`/payments/${payment.id}/approval`);
@@ -193,16 +143,16 @@ export function PaymentCreatePage() {
         {preview.isPending ? "Đang lấy dữ liệu..." : "Tính bảng thanh toán"}
       </button>
     </div>
-    {localError || error ? <div className="pay-alert error">{localError || error.message}</div> : null}
+    {error ? <div className="pay-alert error">{error.message}</div> : null}
     {preview.data ? <section className="pay-panel create-detail">
       <header>
-        <div>
-          <button className="pay-text-action" type="button" onClick={() => setShowAddItems((current) => !current)}><PlusCircle size={15} />Thêm hạng mục</button>
-        </div>
+        <label className="create-tax-field">
+          <span>Thuế suất (%)</span>
+          <input type="number" min="0" max="100" step="0.01" value={Number(form.tax_rate) * 100} onChange={(event) => setForm((current) => ({ ...current, tax_rate: String(Number(event.target.value) / 100) }))} />
+        </label>
         <strong>Chi tiết các hạng mục thanh toán</strong>
       </header>
-      {showAddItems ? <div className="pay-alert info">{removedLines.length ? <><strong>Chọn hạng mục muốn thêm lại: </strong>{removedLines.map((line) => <button className="pay-text-action" type="button" key={line.service_id} onClick={() => setVisibleIds((current) => [...current, line.service_id])}>{line.description}</button>)}</> : "Tất cả hạng mục có sản lượng hợp lệ từ Production đã nằm trong bảng."}</div> : null}
-      <PaymentLines lines={displayedPayment.lines} editable values={values} onChange={changeQuantity} onRemove={(id) => setVisibleIds((current) => current.filter((item) => item !== id))} />
+      <PaymentLines lines={displayedPayment.lines} />
       <PaymentTotals payment={displayedPayment} />
     </section> : <div className="pay-empty-preview">
       <FileText size={30} />
