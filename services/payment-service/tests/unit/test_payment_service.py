@@ -139,7 +139,7 @@ def test_payment_id_rejects_more_than_999_per_year(db_session):
         ),
         (
             "unconfirmed-production",
-            "confirmed or reconciled",
+            "phải được khóa",
         ),
         (
             "no-price",

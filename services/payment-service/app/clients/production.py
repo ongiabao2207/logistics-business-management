@@ -24,7 +24,7 @@ class FakeProductionClient:
     def get_eligible_records(self, contract_id: str, period_start: date, period_end: date) -> list[ProductionRecord]:
         if contract_id == "no-production":
             return []
-        status = "PENDING" if contract_id == "unconfirmed-production" else "CONFIRMED"
+        status = "DRAFT" if contract_id == "unconfirmed-production" else "LOCKED"
         return [ProductionRecord("CONTAINER_20", "20-foot container handling", Decimal("12"), period_start, period_end, status)]
 
 
@@ -50,13 +50,13 @@ class HttpProductionClient:
             raise ConnectionError(f"Production Service trả về lỗi HTTP {response.status_code}") from exc
 
         records: list[ProductionRecord] = []
-        status_map = {"LOCKED": "CONFIRMED", "APPROVED": "RECONCILED"}
         for period in response.json():
+            if period["status"] != "LOCKED":
+                continue
             start = date.fromisoformat(period["from_date"])
             end = date.fromisoformat(period["to_date"])
-            if start < period_start or end > period_end:
+            if start != period_start or end != period_end:
                 continue
-            mapped_status = status_map.get(period["status"], period["status"])
             for detail in period.get("details", []):
                 records.append(
                     ProductionRecord(
@@ -65,7 +65,7 @@ class HttpProductionClient:
                         quantity=Decimal(str(detail["quantity"])),
                         period_start=start,
                         period_end=end,
-                        status=mapped_status,
+                        status="LOCKED",
                     )
                 )
         return records

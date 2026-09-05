@@ -20,15 +20,6 @@ import {
   useSubmitPayment,
 } from "../hooks/usePayments.js";
 
-function datesFromPeriod(period) {
-  if (!period) return { period_start: "", period_end: "" };
-  const [year, month] = period.split("-").map(Number);
-  return {
-    period_start: `${year}-${String(month).padStart(2, "0")}-01`,
-    period_end: `${year}-${String(month).padStart(2, "0")}-${new Date(year, month, 0).getDate()}`,
-  };
-}
-
 function recalculateTax(payment, taxRate) {
   const rate = Number(taxRate);
   const lines = payment.lines.map((line) => {
@@ -43,11 +34,11 @@ function recalculateTax(payment, taxRate) {
 export function PaymentCreatePage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const periodDates = datesFromPeriod(params.get("period"));
   const [form, setForm] = useState({
     customer_id: params.get("customer_id") ?? "",
     contract_id: params.get("contract_id") ?? "",
-    ...periodDates,
+    period_start: params.get("period_start") ?? "",
+    period_end: params.get("period_end") ?? "",
     tax_rate: "0.10",
   });
   const { getCustomerName } = usePaymentContracts();
@@ -82,11 +73,6 @@ export function PaymentCreatePage() {
     () => preview.data ? recalculateTax(preview.data, form.tax_rate) : null,
     [preview.data, form.tax_rate],
   );
-
-  const change = (event) => setForm((current) => ({
-    ...current,
-    [event.target.name]: event.target.value,
-  }));
 
   const calculate = () => preview.mutate(payload);
 
@@ -124,8 +110,8 @@ export function PaymentCreatePage() {
         <div>
           <small>Kỳ thanh toán</small>
           <div className="date-pair">
-            <input type="date" name="period_start" value={form.period_start} onChange={change} />
-            <input type="date" name="period_end" value={form.period_end} onChange={change} />
+            <input type="date" name="period_start" value={form.period_start} readOnly />
+            <input type="date" name="period_end" value={form.period_end} readOnly />
           </div>
         </div>
       </article>
@@ -138,7 +124,7 @@ export function PaymentCreatePage() {
       </article>
     </section>
     <div className="pay-preview-action">
-      <button className="pay-button outline" type="button" onClick={calculate} disabled={!form.customer_id || !form.contract_id || preview.isPending}>
+      <button className="pay-button outline" type="button" onClick={calculate} disabled={!form.customer_id || !form.contract_id || !form.period_start || !form.period_end || preview.isPending}>
         <Pencil size={16} />
         {preview.isPending ? "Đang lấy dữ liệu..." : "Tính bảng thanh toán"}
       </button>

@@ -34,7 +34,7 @@ File seed chỉ nạp dữ liệu mẫu vào PostgreSQL của từng service. Kh
 1. Kế toán chọn kỳ và hợp đồng.
 2. Frontend yêu cầu Payment tính xem trước.
 3. Payment kiểm tra hợp đồng qua Contract Service.
-4. Payment lấy sản lượng đúng kỳ từ Production Service.
+4. Payment lấy đúng kỳ `LOCKED` có ngày bắt đầu và ngày kết thúc trùng với kỳ đã chọn từ Production Service.
 5. Payment lấy đơn giá hiệu lực từ Price Service.
 6. Payment tính tiền từng dòng, thuế và tổng tiền.
 7. Kế toán kiểm tra dữ liệu và có thể thay đổi thuế suất; sản lượng không được chỉnh sửa.
@@ -47,7 +47,8 @@ File seed chỉ nạp dữ liệu mẫu vào PostgreSQL của từng service. Kh
 
 - Không tạo hai bảng có cùng `contract_id`, `period_start` và `period_end`.
 - `period_end` phải lớn hơn hoặc bằng `period_start`.
-- Chỉ lấy sản lượng Production đủ điều kiện.
+- Chỉ lấy kỳ Production ở trạng thái `LOCKED`; kỳ `DRAFT` không được sử dụng.
+- Kỳ thanh toán dùng đúng `period_start` và `period_end` của kỳ Production, không tự quy đổi thành tháng.
 - Mỗi dịch vụ phải có đơn giá hiệu lực tại ngày kết thúc kỳ.
 - Sản lượng dùng để tính tiền luôn bằng sản lượng Production đã xác nhận.
 - API tạo và chỉnh sửa không nhận danh sách dòng hoặc sản lượng từ người dùng.
