@@ -22,17 +22,36 @@ def test_contract_client_reads_real_contract_shape(monkeypatch):
     assert contract.status == "ACTIVE"
 
 
-def test_production_client_maps_approved_records(monkeypatch):
+def test_production_client_reads_only_exact_locked_period(monkeypatch):
     monkeypatch.setattr(httpx, "get", lambda *args, **kwargs: response([{
         "contract_id": "HD2026004", "from_date": "2026-09-01", "to_date": "2026-09-30",
-        "status": "APPROVED", "details": [{"service_code": "1", "quantity": "12.000", "notes": "Bốc xếp"}],
+        "status": "LOCKED", "details": [{"service_code": "1", "quantity": "12.000", "notes": "Bốc xếp"}],
     }]))
     records = HttpProductionClient("http://production/api/v1", "token").get_eligible_records(
         "HD2026004", date(2026, 9, 1), date(2026, 9, 30)
     )
     assert records[0].service_id == "1"
     assert records[0].quantity == Decimal("12.000")
-    assert records[0].status == "RECONCILED"
+    assert records[0].status == "LOCKED"
+
+
+def test_production_client_excludes_draft_and_different_periods(monkeypatch):
+    monkeypatch.setattr(httpx, "get", lambda *args, **kwargs: response([
+        {
+            "contract_id": "HD2026004", "from_date": "2026-09-01", "to_date": "2026-09-30",
+            "status": "DRAFT", "details": [{"service_code": "1", "quantity": "12"}],
+        },
+        {
+            "contract_id": "HD2026004", "from_date": "2026-09-05", "to_date": "2026-09-20",
+            "status": "LOCKED", "details": [{"service_code": "1", "quantity": "8"}],
+        },
+    ]))
+
+    records = HttpProductionClient("http://production/api/v1", "token").get_eligible_records(
+        "HD2026004", date(2026, 9, 1), date(2026, 9, 30)
+    )
+
+    assert records == []
 
 
 def test_price_client_uses_price_effective_on_payment_date(monkeypatch):

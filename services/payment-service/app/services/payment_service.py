@@ -98,25 +98,21 @@ class PaymentService:
         lines: list[PaymentLinePreview] = []
 
         for record in records:
-            record_is_outside_period = (
-                record.period_start < request.period_start
-                or record.period_end > request.period_end
+            record_is_different_period = (
+                record.period_start != request.period_start
+                or record.period_end != request.period_end
             )
 
-            if record_is_outside_period:
+            if record_is_different_period:
                 raise PaymentError(
                     "Production data does not belong "
                     "to the payment period",
                     422,
                 )
 
-            if record.status not in {
-                "CONFIRMED",
-                "RECONCILED",
-            }:
+            if record.status != "LOCKED":
                 raise PaymentError(
-                    "Production data must be "
-                    "confirmed or reconciled",
+                    "Kỳ sản lượng phải được khóa trước khi lập bảng thanh toán",
                     422,
                 )
 

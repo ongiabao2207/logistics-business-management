@@ -295,3 +295,51 @@ button, input, select, textarea { font:inherit; }
     flex-direction: column;
   }
 }
+
+/* Danh sách kỳ Production dùng trực tiếp cho luồng lập Payment. */
+.pay-locked-period-search {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(300px, .8fr);
+  gap: 24px;
+  align-items: end;
+}
+.pay-locked-period-note {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 6px;
+  background: #eef4ff;
+  padding: 12px 16px;
+  color: #174493;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.pay-locked-period-panel {
+  margin-top: 20px;
+  overflow: hidden;
+}
+.pay-locked-period-table th {
+  font-size: 12px;
+  line-height: 1.4;
+}
+.pay-locked-period-table td {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.pay-locked-period-table .mini-status,
+.pay-period-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .pay-locked-period-search {
+    grid-template-columns: 1fr;
+  }
+  .pay-locked-period-table {
+    min-width: 900px;
+  }
+}
