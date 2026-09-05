@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
@@ -14,6 +15,7 @@ from app.schemas.contract_schema import (
     ContractDetailRead,
     ContractRead,
     ContractSummaryRead,
+    ProductionContractValidationRead,
     ContractStatusUpdate,
     ContractReview,
     ContractUpdate,
@@ -49,7 +51,7 @@ def get_contract_service(
 
 @router.get("", response_model=list[ContractSummaryRead])
 def list_contracts(
-    _current_user: Annotated[CurrentUser, Depends(require_roles("ROLE_SALE", "ROLE_LEGAL", "ROLE_DIRECTOR", "ROLE_ACCOUNTANT"))],
+    _current_user: Annotated[CurrentUser, Depends(require_roles("ROLE_SALE", "ROLE_LEGAL", "ROLE_DIRECTOR", "ROLE_ACCOUNTANT", "ROLE_OPERATION"))],
     db: Session = Depends(get_db),
     service: ContractService = Depends(get_contract_service),
 ):
@@ -170,7 +172,7 @@ def update_contract(
 @router.get("/{contract_id}", response_model=ContractDetailRead)
 def get_contract_detail(
     contract_id: str,
-    _current_user: Annotated[CurrentUser, Depends(require_roles("ROLE_SALE", "ROLE_LEGAL", "ROLE_DIRECTOR", "ROLE_ACCOUNTANT"))],
+    _current_user: Annotated[CurrentUser, Depends(require_roles("ROLE_SALE", "ROLE_LEGAL", "ROLE_DIRECTOR", "ROLE_ACCOUNTANT", "ROLE_OPERATION"))],
     db: Session = Depends(get_db),
     service: ContractService = Depends(get_contract_service),
 ):
@@ -186,6 +188,23 @@ def get_contract_detail(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         )
+
+
+@router.get("/{contract_id}/validate-services", response_model=ProductionContractValidationRead)
+def validate_production_period(
+    contract_id: str,
+    fromDate: date,
+    toDate: date,
+    _current_user: Annotated[CurrentUser, Depends(require_roles("ROLE_OPERATION"))],
+    db: Session = Depends(get_db),
+    service: ContractService = Depends(get_contract_service),
+):
+    try:
+        return service.validate_production_period(db, contract_id, fromDate, toDate)
+    except ContractNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ContractValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
 
 @router.delete("/{contract_id}", status_code=status.HTTP_204_NO_CONTENT)

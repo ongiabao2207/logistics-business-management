@@ -304,7 +304,37 @@ def test_list_contracts_returns_core_information(db_session):
     assert contracts[0].status == "DRAFT"
 
 
-def test_get_contract_detail_returns_services_without_service_ids(db_session):
+def test_validates_active_contract_for_production_period(db_session):
+    service = make_service()
+    contract = service.create_contract(db_session, make_contract_create(), "production-validation")
+    service.update_contract_status(db_session, contract.id, ContractStatusUpdate(status="SUBMITTED"))
+    service.update_contract_status(db_session, contract.id, ContractStatusUpdate(status="ACTIVE"))
+
+    validation = service.validate_production_period(
+        db_session,
+        contract.id,
+        contract.valid_from,
+        contract.valid_to,
+    )
+
+    assert validation.customer_id == "KH0001"
+    assert validation.service_codes == ["1"]
+
+
+def test_rejects_production_validation_for_non_active_contract(db_session):
+    service = make_service()
+    contract = service.create_contract(db_session, make_contract_create(), "inactive-production-validation")
+
+    with pytest.raises(ContractValidationError, match="not active"):
+        service.validate_production_period(
+            db_session,
+            contract.id,
+            contract.valid_from,
+            contract.valid_to,
+        )
+
+
+def test_get_contract_detail_returns_service_ids_for_production_validation(db_session):
     service = make_service()
     contract = service.create_contract(
         db_session,
@@ -322,7 +352,7 @@ def test_get_contract_detail_returns_services_without_service_ids(db_session):
     assert len(detail.services) == 2
     assert detail.services[0].service_name == "Container handling"
     assert detail.services[0].quantity == 2
-    assert not hasattr(detail.services[0], "service_id")
+    assert detail.services[0].service_id == 1
 
 
 def test_get_contract_detail_rejects_unknown_contract(db_session):

@@ -46,6 +46,7 @@ class ContractServiceRead(BaseModel):
 
 class ContractSummaryRead(BaseModel):
     contract_id: str
+    customer_id: str
     customer_name: str
     valid_from: date
     valid_to: date
@@ -55,6 +56,7 @@ class ContractSummaryRead(BaseModel):
 
 class ContractDetailServiceRead(BaseModel):
     id: int
+    service_id: int
     service_name: str
     service_unit: str
     service_price: Decimal
@@ -65,6 +67,11 @@ class ContractDetailRead(ContractSummaryRead):
     payment_terms: str
     updated_at: datetime
     services: list[ContractDetailServiceRead]
+
+
+class ProductionContractValidationRead(BaseModel):
+    customer_id: str
+    service_codes: list[str]
 
 
 class ContractRead(BaseModel):

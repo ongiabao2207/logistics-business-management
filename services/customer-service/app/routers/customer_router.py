@@ -20,7 +20,7 @@ def get_customer_service() -> CustomerService:
 def list_customers(
     _user: Annotated[
         CurrentUser,
-        Depends(require_roles("ROLE_SALE", "ROLE_ACCOUNTANT", "ROLE_LEGAL", "ROLE_DIRECTOR")),
+        Depends(require_roles("ROLE_SALE", "ROLE_ACCOUNTANT", "ROLE_LEGAL", "ROLE_DIRECTOR", "ROLE_OPERATION")),
     ],
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
@@ -35,7 +35,7 @@ def get_customer(
     customer_id: str,
     _user: Annotated[
         CurrentUser,
-        Depends(require_roles("ROLE_SALE", "ROLE_ACCOUNTANT", "ROLE_LEGAL", "ROLE_DIRECTOR")),
+        Depends(require_roles("ROLE_SALE", "ROLE_ACCOUNTANT", "ROLE_LEGAL", "ROLE_DIRECTOR", "ROLE_OPERATION")),
     ],
     db: Session = Depends(get_db),
     service: CustomerService = Depends(get_customer_service),

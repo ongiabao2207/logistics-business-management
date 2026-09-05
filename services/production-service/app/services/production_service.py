@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import datetime, timezone
 from decimal import Decimal
+import re
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -29,7 +30,7 @@ class ProductionService:
         period = ProductionPeriod(
             customer_id=payload.customer_id,
             contract_id=payload.contract_id,
-            period_name=payload.period_name,
+            period_name=self._next_period_code(payload.contract_id),
             from_date=payload.from_date,
             to_date=payload.to_date,
             status=ProductionPeriodStatus.DRAFT.value,
@@ -44,14 +45,17 @@ class ProductionService:
             raise
         return production_crud.get_period(self.db, period.id)  # type: ignore[return-value]
 
-    def get_period(self, period_id: int) -> ProductionPeriod:
+    def get_period(self, period_id: int, viewer_role: str | None = None) -> ProductionPeriod:
         period = production_crud.get_period(self.db, period_id)
         if period is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Production period not found")
+        if viewer_role == "ROLE_ACCOUNTANT" and period.status != ProductionPeriodStatus.LOCKED.value:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Production period not found")
         return period
 
-    def list_periods(self, customer_id: str | None, contract_id: str | None) -> list[ProductionPeriod]:
-        return production_crud.list_periods(self.db, customer_id, contract_id)
+    def list_periods(self, customer_id: str | None, contract_id: str | None, viewer_role: str) -> list[ProductionPeriod]:
+        visible_status = ProductionPeriodStatus.LOCKED.value if viewer_role == "ROLE_ACCOUNTANT" else None
+        return production_crud.list_periods(self.db, customer_id, contract_id, visible_status)
 
     def replace_details(self, period_id: int, details: list[ProductionDetailInput]) -> ProductionPeriod:
         period = self.get_period(period_id)
@@ -86,16 +90,6 @@ class ProductionService:
             raise
         return self.get_period(period_id)
 
-    def review_period(self, period_id: int, decision: str, actor_id: str) -> ProductionPeriod:
-        period = self.get_period(period_id)
-        if period.status != ProductionPeriodStatus.LOCKED.value:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only locked production periods can be reviewed")
-        previous_status = period.status
-        period.status = ProductionPeriodStatus.APPROVED.value if decision == "APPROVE" else ProductionPeriodStatus.REJECTED.value
-        record_event(self.db, "PRODUCTION_PERIOD_REVIEWED", period.id, self._event_payload(period, actor_id, previous_status, period.status))
-        self.db.commit()
-        return self.get_period(period_id)
-
     @staticmethod
     def totals(period: ProductionPeriod) -> list[dict]:
         grouped: dict[tuple[str, str], Decimal] = defaultdict(Decimal)
@@ -114,6 +108,22 @@ class ProductionService:
         if contract.customer_id != customer_id:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Customer does not match the contract")
         return contract
+
+    def _next_period_code(self, contract_id: str) -> str:
+        match = re.search(r"20\d{2}", contract_id)
+        if match is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Contract ID must contain a four-digit year, for example HD-2024-TCB-082",
+            )
+        year = match.group(0)
+        sequence = sum(
+            1
+            for existing_contract_id in production_crud.list_contract_ids(self.db)
+            if re.search(r"20\d{2}", existing_contract_id)
+            and re.search(r"20\d{2}", existing_contract_id).group(0) == year
+        ) + 1
+        return f"SL-{year}-{sequence:03d}"
 
     @staticmethod
     def _validate_details(details, from_date, to_date, allowed_service_codes: set[str]) -> None:
@@ -143,7 +153,7 @@ class ProductionService:
 
     @staticmethod
     def _event_payload(period: ProductionPeriod, actor_id: str, status_before: str | None, status_after: str) -> dict:
-        return {
+        payload = {
             "actor_id": actor_id,
             "period_id": period.id,
             "customer_id": period.customer_id,
@@ -152,3 +162,16 @@ class ProductionService:
             "status_after": status_after,
             "recipient_role": "ROLE_ACCOUNTANT" if status_after == ProductionPeriodStatus.LOCKED.value else None,
         }
+        if status_after == ProductionPeriodStatus.LOCKED.value:
+            payload.update(
+                {
+                    "title": "Kỳ sản lượng đã được khóa",
+                    "content": (
+                        f"Kỳ sản lượng {period.period_name} thuộc hợp đồng "
+                        f"{period.contract_id} đã được khóa."
+                    ),
+                    "reference_type": "PRODUCTION_PERIOD",
+                    "reference_id": str(period.id),
+                }
+            )
+        return payload
