@@ -5,14 +5,12 @@ import {
   Home,
   KeyRound,
   Tags,
-  Users,
 } from "lucide-react";
 import { MODULE_ROLES } from "../../features/identity/constants/permissions";
 
 export const navigationItems = [
   { label: "Tổng quan", path: "/", icon: Home },
   { label: "Người dùng", path: "/identity", icon: KeyRound, roles: MODULE_ROLES.identity },
-  { label: "Khách hàng", path: "/customers", icon: Users, roles: MODULE_ROLES.customers },
   { label: "Hợp đồng", path: "/contracts", icon: FileText, roles: MODULE_ROLES.contracts },
   { label: "Bảng giá", path: "/prices", icon: Tags, roles: MODULE_ROLES.prices },
   { label: "Sản lượng", path: "/production", icon: Factory, roles: MODULE_ROLES.production },

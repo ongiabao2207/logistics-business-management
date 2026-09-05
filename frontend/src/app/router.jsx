@@ -3,7 +3,6 @@ import { Navigate, createBrowserRouter } from "react-router-dom";
 import { ContractCreatePage } from "../features/contracts/pages/ContractCreatePage.jsx";
 import { ContractEditPage } from "../features/contracts/pages/ContractEditPage.jsx";
 import { ContractListPage } from "../features/contracts/pages/ContractListPage.jsx";
-import { CustomerListPage } from "../features/customers/pages/CustomerListPage.jsx";
 import { DashboardPage } from "../features/dashboard/pages/DashboardPage.jsx";
 import { MODULE_ROLES, ROLES } from "../features/identity/constants/permissions.js";
 import { IdentityLoginPage } from "../features/identity/pages/IdentityLoginPage.jsx";
@@ -34,7 +33,6 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <DashboardPage /> },
       { path: "identity", element: protect(<IdentityLoginPage />, MODULE_ROLES.identity) },
-      { path: "customers", element: protect(<CustomerListPage />, MODULE_ROLES.customers) },
       { path: "contracts", element: protect(<ContractListPage />, MODULE_ROLES.contracts) },
       { path: "contracts/new", element: protect(<ContractCreatePage />, MODULE_ROLES.contracts) },
       { path: "contracts/:contractId/edit", element: protect(<ContractEditPage />, MODULE_ROLES.contracts) },
