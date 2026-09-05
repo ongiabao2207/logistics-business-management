@@ -85,7 +85,7 @@ export function PaymentCreatePage() {
         payment = await submit.mutateAsync(payment.id);
         navigate(`/payments/${payment.id}/approval`);
       } else {
-        navigate(`/payments/${payment.id}/edit`);
+        navigate(`/payments/${payment.id}`);
       }
     } catch {
       // Mutation state renders the API error above the table.
