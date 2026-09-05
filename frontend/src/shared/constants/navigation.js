@@ -1,5 +1,4 @@
 import {
-  Bell,
   CreditCard,
   Factory,
   FileText,
@@ -18,7 +17,6 @@ export const navigationItems = [
   { label: "Bảng giá", path: "/prices", icon: Tags, roles: MODULE_ROLES.prices },
   { label: "Sản lượng", path: "/production", icon: Factory, roles: MODULE_ROLES.production },
   { label: "Thanh toán", path: "/payments", icon: CreditCard, roles: MODULE_ROLES.payments },
-  { label: "Thông báo", path: "/notifications", icon: Bell },
 ];
 
 export const moduleSummaryItems = [

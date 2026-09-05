@@ -90,12 +90,11 @@ httpClient.interceptors.response.use(
   (response) => response.data,
   (error) => {
     const status = error.response?.status;
-    const requestUrl = error.config?.url ?? "";
-    if (status === 401 && !requestUrl.endsWith("/api/v1/auth/login")) {
+    if (status === 401 && getAuthToken()) {
       clearAuthToken();
-      const returnTo = `${window.location.pathname}${window.location.search}`;
-      window.location.assign(`/login?expired=1&returnTo=${encodeURIComponent(returnTo)}`);
+      window.dispatchEvent(new Event("logistics:unauthenticated"));
     }
+
     const detail = error.response?.data?.detail;
     const message = typeof detail === "string"
       ? detail

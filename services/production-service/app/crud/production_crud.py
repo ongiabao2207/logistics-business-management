@@ -21,12 +21,19 @@ def get_period(db: Session, period_id: int) -> ProductionPeriod | None:
     return db.scalar(statement)
 
 
-def list_periods(db: Session, customer_id: str | None = None, contract_id: str | None = None) -> list[ProductionPeriod]:
+def list_periods(
+    db: Session,
+    customer_id: str | None = None,
+    contract_id: str | None = None,
+    status: str | None = None,
+) -> list[ProductionPeriod]:
     statement = select(ProductionPeriod).options(selectinload(ProductionPeriod.details)).order_by(ProductionPeriod.from_date.desc())
     if customer_id:
         statement = statement.where(ProductionPeriod.customer_id == customer_id)
     if contract_id:
         statement = statement.where(ProductionPeriod.contract_id == contract_id)
+    if status:
+        statement = statement.where(ProductionPeriod.status == status)
     return list(db.scalars(statement))
 
 
@@ -34,6 +41,10 @@ def create_period(db: Session, period: ProductionPeriod) -> ProductionPeriod:
     db.add(period)
     db.flush()
     return period
+
+
+def list_contract_ids(db: Session) -> list[str]:
+    return list(db.scalars(select(ProductionPeriod.contract_id)))
 
 
 def replace_details(period: ProductionPeriod, details: list[ProductionDetail]) -> None:

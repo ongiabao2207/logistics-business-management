@@ -21,11 +21,11 @@ export default defineConfig({
 
       "/api/v1/payments": "http://localhost:8004",
       "/api": {
-        target: "http://127.0.0.1",
+        target: "http://127.0.0.1:8088",
         changeOrigin: true,
       },
       "/.well-known": {
-        target: "http://127.0.0.1",
+        target: "http://127.0.0.1:8088",
         changeOrigin: true,
       },
     },
